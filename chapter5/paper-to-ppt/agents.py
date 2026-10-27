@@ -9,6 +9,10 @@
 所有对 OpenAI 的调用都经过 TokenMeter 统计 prompt / completion token，
 用于最后的“单 Agent vs 双 Agent 上下文消耗”对比。
 """
+
+from agentbook.providers import chat_completion, chat_request
+
+from agentbook.providers import example_provider, example_model, resolve_example_backend
 import base64
 import datetime as dt
 import hashlib
@@ -23,9 +27,9 @@ from openai import OpenAI
 from PIL import Image
 
 # 文本生成用的模型（Proposer / 单 Agent 的文本部分）
-TEXT_MODEL = os.environ.get("TEXT_MODEL", "gpt-5.6-luna")
+TEXT_MODEL = os.environ.get("TEXT_MODEL") or example_model(example_provider(default="openai"))
 # 视觉审查用的模型（Reviewer / 单 Agent 的看图部分），必须支持图像
-VISION_MODEL = os.environ.get("VISION_MODEL", "gpt-5.6-luna")
+VISION_MODEL = os.environ.get("VISION_MODEL") or example_model(example_provider(default="openai"))
 
 PROVIDER = os.environ.get("PPT_PROVIDER", "auto")
 
@@ -33,6 +37,10 @@ PROVIDER = os.environ.get("PPT_PROVIDER", "auto")
 def configure_provider(provider: str) -> None:
     global PROVIDER
     PROVIDER = provider
+    global TEXT_MODEL, VISION_MODEL
+    selected = example_provider(provider, default="openai")
+    TEXT_MODEL = os.getenv("TEXT_MODEL") or example_model(selected)
+    VISION_MODEL = os.getenv("VISION_MODEL") or example_model(selected)
 
 
 # 发送给 Vision 前把截图缩放到该宽度，兼顾“看得清文字溢出”与“控制 token 成本”
@@ -123,11 +131,7 @@ def _client() -> OpenAI:
         TEXT_MODEL,
     )
     try:
-        backend = resolve_backend(
-            PROVIDER if PROVIDER != "auto" else "openai",
-            model=trigger,
-            chosen_by_reader=PROVIDER != "auto",
-        )
+        backend = resolve_example_backend(PROVIDER, model=trigger, default="openai")
     except ValueError as exc:
         raise SystemExit(
             "❌ 未检测到 OPENAI_API_KEY（或 OPENROUTER_API_KEY 兜底）。请先 `cp env.example .env` 并填入有效的 "
@@ -319,7 +323,8 @@ class Reviewer:
             "temperature": 0.2,
         }
         started = time.monotonic()
-        resp = self.client.chat.completions.create(**request)
+        request = chat_request(**request)
+        resp = chat_completion(self.client, **request)
         self.meter.add(resp, request, time.monotonic() - started)
         return _extract_json(resp.choices[0].message.content)
 
@@ -372,7 +377,8 @@ class Proposer:
         for attempt in range(3):
             request = {"model": TEXT_MODEL, "messages": self.messages, "temperature": 0.3}
             started = time.monotonic()
-            resp = self.client.chat.completions.create(**request)
+            request = chat_request(**request)
+            resp = chat_completion(self.client, **request)
             self.meter.add(resp, request, time.monotonic() - started)
             reply = resp.choices[0].message.content
             self.messages.append({"role": "assistant", "content": reply})
@@ -451,7 +457,8 @@ class SelfReviewAgent:
         for attempt in range(3):
             request = {"model": VISION_MODEL, "messages": self.messages, "temperature": 0.3}
             started = time.monotonic()
-            resp = self.client.chat.completions.create(**request)
+            request = chat_request(**request)
+            resp = chat_completion(self.client, **request)
             self.meter.add(resp, request, time.monotonic() - started)
             reply = resp.choices[0].message.content
             self.messages.append({"role": "assistant", "content": reply})

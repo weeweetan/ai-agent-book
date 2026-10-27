@@ -14,6 +14,8 @@ Agent 用一套**规则驱动**的决策代替 LLM。关键在于：离线策略
 依然可被审计校验。
 """
 
+from agentbook.providers import chat_completion, chat_request
+
 import json
 import os
 import re
@@ -46,7 +48,8 @@ def _safe_create(client, **kwargs):
     这样同一份代码既能跑传统对话模型（接受 temperature=0.8），也能跑推理模型。"""
     for _ in range(3):
         try:
-            return client.chat.completions.create(**kwargs)
+            kwargs = chat_request(**kwargs)
+            return chat_completion(client, **kwargs)
         except Exception as e:
             msg = str(e)
             if "max_completion_tokens" in msg and "max_tokens" in kwargs:
@@ -56,7 +59,8 @@ def _safe_create(client, **kwargs):
                 kwargs.pop("temperature", None)
                 continue
             raise
-    return client.chat.completions.create(**kwargs)
+    kwargs = chat_request(**kwargs)
+    return chat_completion(client, **kwargs)
 
 
 def get_client():
@@ -73,7 +77,12 @@ def get_client():
             "timeout": float(os.getenv("WEREWOLF_LLM_TIMEOUT", "45")),
             "max_retries": int(os.getenv("WEREWOLF_LLM_RETRIES", "1")),
         }
-        if os.environ.get("ARK_API_KEY"):
+        if os.getenv("LLM_PROVIDER") or os.getenv("DEEPSEEK_API_KEY"):
+            from agentbook.providers import resolve_example_backend
+            backend = resolve_example_backend(default="deepseek")
+            _MODEL = backend.model
+            _client = OpenAI(api_key=backend.api_key, base_url=backend.base_url, **client_options)
+        elif os.environ.get("ARK_API_KEY"):
             _MODEL = os.getenv("ARK_MODEL", "doubao-seed-1-6-250615")
             _client = OpenAI(api_key=os.environ["ARK_API_KEY"],
                              base_url="https://ark.cn-beijing.volces.com/api/v3",

@@ -2,6 +2,8 @@
 Context Compression Research Agent with Streaming Support
 """
 
+from agentbook.providers import chat_completion
+
 import json
 import logging
 import time
@@ -361,7 +363,7 @@ TODAY'S DATE: {date_string}"""
             Complete message object with token usage
         """
         try:
-            stream = self.client.chat.completions.create(
+            stream = chat_completion(self.client,
                 model=self.model,
                 messages=messages,
                 tools=self._get_tools_description(),
@@ -457,7 +459,7 @@ TODAY'S DATE: {date_string}"""
         Returns:
             Complete message object with token usage
         """
-        response = self.client.chat.completions.create(
+        response = chat_completion(self.client,
             model=self.model,
             messages=messages,
             tools=self._get_tools_description(),

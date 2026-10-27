@@ -15,6 +15,8 @@
 
 from __future__ import annotations
 
+from agentbook.providers import chat_completion, chat_request
+
 import json
 import os
 import tempfile
@@ -327,7 +329,8 @@ class Agent:
                         "temperature": self.temperature,
                     }
                     started = time.perf_counter()
-                    resp = self.client.chat.completions.create(**request)
+                    request = chat_request(**request)
+                    resp = chat_completion(self.client, **request)
                     self.result.provider_calls.append({
                         "request": request,
                         "response": resp.model_dump(mode="json"),
@@ -379,7 +382,7 @@ def make_client(
     except ImportError:
         pass
 
-    from agentbook.providers import resolve_backend
+    from agentbook.providers import resolve_example_backend
 
     # 本实验特意用 gpt-4o-mini 作为默认模型：它是一个“故意可被攻破”的较弱基线。
     # 只有在这种模型上，才能观察到“防御逐层加强 -> 注入成功率显著下降”的对照曲线
@@ -387,11 +390,12 @@ def make_client(
     # 换成更强的模型（如 gpt-5.6-luna）会在 D1 无防御下就抗住全部三类注入，
     # 全矩阵成功率为 0，从而抹平了本实验要展示的教学对比。故此处保留 gpt-4o-mini。
     requested_provider = os.getenv("LLM_PROVIDER", "openai").lower()
-    requested_model = model or os.getenv("OPENAI_MODEL")
-    if not requested_model and requested_provider == "openai":
-        requested_model = "gpt-4o-mini"
+    requested_model = model or (os.getenv("OPENAI_MODEL") if requested_provider == "openai" else None)
     # Endpoint and key selection are handled by the shared provider registry.
-    backend = resolve_backend(requested_provider, model=requested_model)
+    backend = resolve_example_backend(
+        requested_provider, model=requested_model,
+        default_model="gpt-4o-mini" if requested_provider == "openai" else None,
+    )
     model = backend.model
     # 允许显式传入 base_url 覆盖（默认官方；OPENAI_BASE_URL 由注册表处理），
     # 但请勿指向已失效的第三方网关。回退到 OpenRouter 时不可覆盖：

@@ -11,6 +11,8 @@ boundary.
 
 from __future__ import annotations
 
+from agentbook.providers import chat_completion
+
 import base64
 import hashlib
 import json
@@ -201,7 +203,7 @@ class SimulatedVoiceSession:
             provider = "OpenAI Audio API"
         elif self.provider == "openrouter-system":
             model = os.getenv("SIMULATOR_ASR_MODEL", "google/gemini-2.5-flash")
-            response = self.client.chat.completions.create(
+            response = chat_completion(self.client,
                 model=model,
                 messages=[{"role": "user", "content": [
                     {"type": "text", "text": (

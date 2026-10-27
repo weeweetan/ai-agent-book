@@ -30,6 +30,10 @@ HTML 表单**（含级联显示逻辑），让用户"一次提交"补全所有�
   MODEL            （可选，默认 gpt-5.6-luna）
 """
 
+from agentbook.providers import chat_completion
+
+from agentbook.providers import PROVIDERS, example_provider
+
 import os
 import re
 import json
@@ -77,26 +81,10 @@ def _map_to_openrouter_model(model: str) -> str:
 
 
 def build_client_and_model(model_override=None):
-    """构造 OpenAI 客户端与模型名，含通用 OpenRouter 兜底。"""
-    from openai import OpenAI  # 延迟导入：离线模式无需安装/配置 openai
-
-    model = model_override or os.getenv("MODEL", "gpt-5.6-luna")
-    api_key = os.getenv("OPENAI_API_KEY")
-    base_url = os.getenv("OPENAI_BASE_URL")
-    orkey = os.getenv("OPENROUTER_API_KEY")
-    # 无直连 key，或默认 gpt-5.x（直连需组织实名认证）时改走 OpenRouter。
-    prefer_or = bool(orkey) and (model or "").lower().startswith("gpt-5")
-    if prefer_or or (not api_key and orkey):
-        api_key, base_url, model = orkey, OPENROUTER_BASE_URL, _map_to_openrouter_model(model)
-    if not api_key:
-        raise SystemExit("未找到 OPENAI_API_KEY（或 OPENROUTER_API_KEY 兜底），请先在环境变量或 .env 中设置，或改用 --offline。")
-
-    client = (
-        OpenAI(api_key=api_key, base_url=base_url)
-        if base_url
-        else OpenAI(api_key=api_key)
-    )
-    return client, model
+    from openai import OpenAI
+    from agentbook.providers import resolve_example_backend
+    backend = resolve_example_backend(model=model_override or os.getenv("MODEL"), default="openai")
+    return OpenAI(api_key=backend.api_key, base_url=backend.base_url), backend.model
 
 
 def _temp_for(model):
@@ -134,7 +122,7 @@ FORM_SYSTEM_PROMPT = """你是一个"意图澄清"助手。用户会给出一个
 
 def generate_form(client, model, user_request):
     """调用模型生成澄清表单的 HTML。"""
-    resp = client.chat.completions.create(
+    resp = chat_completion(client,
         model=model,
         temperature=_temp_for(model),
         messages=[
@@ -502,7 +490,7 @@ PARSE_SYSTEM_PROMPT = """你是订机票助手。用户已经通过澄清表单�
 
 def continue_task(client, model, original_request, submitted_json):
     """把用户提交的 JSON 交回 Agent（在线），生成订票摘要。"""
-    resp = client.chat.completions.create(
+    resp = chat_completion(client,
         model=model,
         temperature=_temp_for(model),
         messages=[
@@ -637,7 +625,7 @@ def main():
 
     # 离线判定：显式 --offline，或既无 OPENAI_API_KEY 也无 OPENROUTER_API_KEY 时自动回落
     offline = args.offline
-    if not offline and not (os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY")):
+    if not offline and not (PROVIDERS[example_provider(default="openai")].api_key() or os.getenv("OPENROUTER_API_KEY")):
         print("未检测到 OPENAI_API_KEY（或 OPENROUTER_API_KEY 兜底），自动切换到离线模式（等价于 --offline）。\n")
         offline = True
 

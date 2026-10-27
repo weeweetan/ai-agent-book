@@ -1,5 +1,7 @@
 """Quick start example for Mem0 agent with Kimi K3."""
 
+from agentbook.providers import PROVIDERS, example_provider
+
 import asyncio
 import os
 from dotenv import load_dotenv
@@ -274,8 +276,8 @@ async def main():
     ))
     
     # Check for API key
-    if not os.getenv("KIMI_API_KEY"):
-        console.print("[red]Error: KIMI_API_KEY not found in environment[/red]")
+    if not (PROVIDERS[example_provider()].api_key() or os.getenv("OPENROUTER_API_KEY")):
+        console.print("[red]Error: selected provider API key not found in environment[/red]")
         console.print("Please set your Kimi API key in the .env file")
         return
     

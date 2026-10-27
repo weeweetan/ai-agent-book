@@ -3,6 +3,8 @@ Quick Start for System-Hint Enhanced Agent
 Simple demonstration using the sample task
 """
 
+from agentbook.providers import example_provider
+
 import os
 import sys
 from pathlib import Path
@@ -16,8 +18,8 @@ def main():
 
     # Check for API key. 接受哪些环境变量由 agentbook 的 provider 注册表定义；
     # Kimi 官方 key 缺失时用 OPENROUTER_API_KEY 兜底。
-    api_key = PROVIDERS["kimi"].api_key() or os.getenv("OPENROUTER_API_KEY")
-    if not api_key:
+    api_key = PROVIDERS[example_provider()].api_key()
+    if not api_key and not os.getenv("OPENROUTER_API_KEY"):
         print("❌ Error: Please set KIMI_API_KEY environment variable")
         print("\nSetup instructions:")
         print("  1. Copy env.example to .env")

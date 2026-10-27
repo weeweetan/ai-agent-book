@@ -2,6 +2,8 @@
 Configuration module for Context Compression Experiment
 """
 
+from agentbook.providers import example_model, resolve_example_backend
+
 import os
 from typing import Optional
 from dotenv import load_dotenv
@@ -34,7 +36,7 @@ class Config:
     
     # Model Configuration
     MODEL_NAME: str = os.getenv(
-        "MODEL_NAME", "qwen3.7-plus" if LLM_PROVIDER == "dashscope" else "kimi-k3"
+        "MODEL_NAME", example_model(LLM_PROVIDER)
     )
     MODEL_TEMPERATURE: float = float(os.getenv("MODEL_TEMPERATURE", "0.3"))
     MODEL_MAX_TOKENS: int = int(os.getenv("MODEL_MAX_TOKENS", "8192"))
@@ -92,7 +94,7 @@ class Config:
         """
         from agentbook.providers import resolve_backend
 
-        backend = resolve_backend(cls.LLM_PROVIDER, model=cls.MODEL_NAME)
+        backend = resolve_example_backend(cls.LLM_PROVIDER, model=cls.MODEL_NAME)
         return backend.api_key, backend.base_url, backend.model
 
     @classmethod

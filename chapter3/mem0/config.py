@@ -1,5 +1,7 @@
 """Configuration module for Mem0 agent with Kimi K3 integration."""
 
+from agentbook.providers import PROVIDERS, example_model, example_provider, resolve_example_backend
+
 import os
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -46,22 +48,16 @@ def _openrouter_model_id(model) -> str:
 class KimiConfig:
     """Configuration for Kimi K3 model."""
 
-    api_key: str = field(default_factory=lambda: os.getenv("KIMI_API_KEY", ""))
-    model_name: str = field(default_factory=lambda: os.getenv("MODEL_NAME", "kimi-k3"))
+    api_key: str = field(default_factory=lambda: PROVIDERS[example_provider()].api_key())
+    model_name: str = field(default_factory=lambda: example_model(example_provider()))
     max_tokens: int = field(default_factory=lambda: int(os.getenv("MAX_TOKENS", "128000")))
     temperature: float = field(default_factory=lambda: float(os.getenv("TEMPERATURE", "0.7")))
-    api_base: str = field(default_factory=lambda: os.getenv("KIMI_API_BASE", "https://api.moonshot.cn/v1"))
+    api_base: str = field(default_factory=lambda: (os.getenv("KIMI_API_BASE") if example_provider() == "kimi" else None) or PROVIDERS[example_provider()].resolved_base_url())
 
     def __post_init__(self):
-        """Universal OpenRouter fallback for the chat LLM: when KIMI_API_KEY is
-        absent but OPENROUTER_API_KEY is present, route the chat model (used by
-        KimiK3Client and threaded into mem0's own LLM config) through OpenRouter.
-        NB: mem0's embedder still uses OpenAI embeddings (OpenRouter has no
-        embeddings endpoint), so OPENAI_API_KEY remains needed for memory add."""
-        if not self.api_key and os.getenv("OPENROUTER_API_KEY"):
-            self.api_key = os.getenv("OPENROUTER_API_KEY")
-            self.api_base = "https://openrouter.ai/api/v1"
-            self.model_name = _openrouter_model_id(self.model_name)
+        if self.api_key or os.getenv("OPENROUTER_API_KEY"):
+            backend = resolve_example_backend(model=self.model_name, api_key=self.api_key, base_url=self.api_base)
+            self.api_key, self.api_base, self.model_name = backend.api_key, backend.base_url, backend.model
 
     def validate(self) -> bool:
         """Validate Kimi configuration."""

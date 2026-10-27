@@ -11,9 +11,11 @@ def test_parser_defaults_to_interactive_kimi_mode():
 
     assert args.query == []
     assert args.provider == "kimi"
-    assert args.model == Config.DEFAULT_MODEL
+    # Defaults are resolved after --provider; never pass a Kimi model/URL to
+    # a reader who selected OpenAI or DeepSeek.
+    assert args.model is None
     assert args.max_steps == Config.MAX_SEARCH_ITERATIONS
-    assert args.base_url == Config.KIMI_BASE_URL
+    assert args.base_url is None
     assert args.output is None
     assert args.quiet is False
 

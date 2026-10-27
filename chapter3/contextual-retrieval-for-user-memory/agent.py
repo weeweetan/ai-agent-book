@@ -4,6 +4,8 @@ This agent uses RAG-indexed conversation memories to answer questions
 about user interactions, following the ReAct pattern.
 """
 
+from agentbook.providers import chat_completion
+
 import json
 import logging
 from typing import List, Dict, Any, Optional, Generator
@@ -231,7 +233,7 @@ Remember: Your credibility depends on providing accurate, well-sourced informati
             
             try:
                 # Call LLM with tools
-                response = self.client.chat.completions.create(
+                response = chat_completion(self.client,
                     model=self.model,
                     messages=messages,
                     tools=self.tools,

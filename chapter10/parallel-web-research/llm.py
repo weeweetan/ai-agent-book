@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from agentbook.providers import chat_completion, chat_request
+
 import json
 import os
 import time
@@ -14,7 +16,15 @@ ReceiptSink = Optional[Callable[[Dict[str, object]], None]]
 def _backends():
     from openai import AsyncOpenAI
 
+    from agentbook.providers import resolve_example_backend
     out = []
+    if os.getenv("LLM_PROVIDER"):
+        backend = resolve_example_backend()
+        return [(AsyncOpenAI(api_key=backend.api_key, base_url=backend.base_url),
+                 backend.model, "openrouter" if backend.using_openrouter else backend.provider)]
+    if os.getenv("DEEPSEEK_API_KEY"):
+        backend = resolve_example_backend("deepseek")
+        out.append((AsyncOpenAI(api_key=backend.api_key, base_url=backend.base_url), backend.model, "deepseek"))
     if os.getenv("ARK_API_KEY"):
         out.append((AsyncOpenAI(api_key=os.environ["ARK_API_KEY"], base_url="https://ark.cn-beijing.volces.com/api/v3"), os.getenv("ARK_MODEL", "doubao-seed-1-6-250615"), "ark"))
     if os.getenv("MOONSHOT_API_KEY"):
@@ -67,7 +77,8 @@ async def extract_profile(
             )
             if "kimi-k3" in model:
                 kwargs.update(temperature=1, max_tokens=2048)
-            response = await client.chat.completions.create(**kwargs)
+            kwargs = chat_request(**kwargs)
+            response = await chat_completion(client, **kwargs)
             raw_response = response.model_dump(mode="json")
             if receipt_sink:
                 receipt_sink({

@@ -5,6 +5,8 @@
 行动，观察搜索结果后继续思考，直到综合出最终答案。运行时会逐步打印 ReAct 轨迹。
 """
 
+from agentbook.providers import example_provider
+
 import os
 import sys
 import json
@@ -38,7 +40,7 @@ def run_interactive_mode(agent: WebSearchAgent, output: Optional[str] = None):
         output: 可选，保存每次问答轨迹的 JSON 文件路径
     """
     print("\n" + "="*60)
-    print("🤖 Kimi Web Search Agent - 交互模式")
+    print("🤖 Web Search Agent - 交互模式")
     print("="*60)
     print("输入您的问题，Agent 将自动搜索并回答")
     print("输入 'quit' 或 'exit' 退出")
@@ -83,7 +85,7 @@ def run_interactive_mode(agent: WebSearchAgent, output: Optional[str] = None):
                                       "trace": agent.get_trace(),
                                       "answer": answer,
                                       "api_turns": agent.get_api_turns(),
-                                      "provider": "openrouter" if agent.using_openrouter else "moonshot",
+                                      "provider": agent.provider,
                                       "model": agent.model,
                                       "base_url": agent.base_url})
 
@@ -107,7 +109,7 @@ def run_single_question(agent: WebSearchAgent, question: str,
         output: 可选，保存轨迹的 JSON 文件路径
     """
     print("\n" + "="*60)
-    print("🤖 Kimi Web Search Agent")
+    print("🤖 Web Search Agent")
     print("="*60)
     print(f"问题: {question}")
     print("-"*60)
@@ -125,7 +127,7 @@ def run_single_question(agent: WebSearchAgent, question: str,
                                   "trace": agent.get_trace(),
                                   "answer": answer,
                                   "api_turns": agent.get_api_turns(),
-                                  "provider": "openrouter" if agent.using_openrouter else "moonshot",
+                                  "provider": agent.provider,
                                   "model": agent.model,
                                   "base_url": agent.base_url})
     except Exception as e:
@@ -137,7 +139,7 @@ def build_parser() -> argparse.ArgumentParser:
     """构建命令行参数解析器（中文帮助）"""
     parser = argparse.ArgumentParser(
         prog="main.py",
-        description="Kimi Web Search Agent —— 演示 ReAct 循环（思考→行动→观察）的搜索 Agent。",
+        description="Web Search Agent —— 演示 ReAct 循环（思考→行动→观察）的搜索 Agent。",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""示例:
   python main.py                                  # 进入交互模式
@@ -148,17 +150,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("query", nargs="*",
                         help="要提问的问题；省略则进入交互模式")
-    parser.add_argument("--provider", choices=["kimi", "offline-demo"], default="kimi",
+    parser.add_argument("--provider", choices=["kimi", "deepseek", "openai", "offline-demo"], default=example_provider(),
                         help="搜索后端：kimi=调用 Kimi Formula web_search（需 API Key）；"
-                             "offline-demo=离线回放示例轨迹（默认 kimi）")
-    parser.add_argument("--model", default=Config.DEFAULT_MODEL,
-                        help=f"使用的模型名称（默认 {Config.DEFAULT_MODEL}）")
+                             "deepseek/openai=模型 + Serper 搜索；offline-demo=离线回放")
+    parser.add_argument("--model", default=None,
+                        help="模型覆盖（默认由供应商和 LLM_MODEL 决定）")
     parser.add_argument("--max-steps", type=int, default=Config.MAX_SEARCH_ITERATIONS,
                         help=f"最大 ReAct 迭代次数（默认 {Config.MAX_SEARCH_ITERATIONS}）")
-    parser.add_argument("--base-url", default=Config.KIMI_BASE_URL,
-                        help=f"API 基础 URL（默认 {Config.KIMI_BASE_URL}）")
+    parser.add_argument("--base-url", default=None,
+                        help="API 基础 URL 覆盖（默认读取供应商对应配置）")
     parser.add_argument("--api-key", default=None,
-                        help="Kimi API Key（默认从 MOONSHOT_API_KEY / KIMI_API_KEY 环境变量读取）")
+                        help="所选供应商 API Key（默认读取对应环境变量）")
     parser.add_argument("--output", "-o", default=None,
                         help="将问题、ReAct 轨迹和答案保存到指定 JSON 文件")
     parser.add_argument("--quiet", action="store_true",
@@ -190,17 +192,13 @@ def main(argv: Optional[list] = None):
             _save_output(args.output, result)
         return
 
-    # 在线模式：需要 API Key
-    api_key = Config.get_api_key(args.api_key)
-    if not api_key and not os.getenv("OPENROUTER_API_KEY"):
-        Config.validate()
-        print("提示：也可设置 OPENROUTER_API_KEY 作为通用兜底。")
-        sys.exit(1)
+    api_key = args.api_key
 
     # 创建 Agent
     try:
         agent = WebSearchAgent(
             api_key=api_key,
+            provider=args.provider,
             base_url=args.base_url,
             model=args.model,
             verbose=not args.quiet,

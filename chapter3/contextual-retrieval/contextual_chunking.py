@@ -6,6 +6,8 @@ This module demonstrates the key insight from Anthropic's research:
 - This preserves semantic meaning that would otherwise be lost
 """
 
+from agentbook.providers import chat_completion
+
 import json
 import hashlib
 import logging
@@ -418,7 +420,7 @@ Here is the chunk we want to situate within the whole document
 Please give a short succinct context to situate this chunk within the overall document for the purposes of improving search retrieval of the chunk. Answer only with the succinct context and nothing else. You MUST use the same language as the document."""
 
             # Use the exact approach from Anthropic - no system message needed
-            response = self.client.chat.completions.create(
+            response = chat_completion(self.client,
                 model=self.model,
                 messages=[
                     {"role": "user", "content": prompt}

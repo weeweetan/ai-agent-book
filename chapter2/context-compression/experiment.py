@@ -362,7 +362,7 @@ def main():
 
     # Create runner
     runner = ExperimentRunner(
-        Config.MOONSHOT_API_KEY,
+        Config.resolve_llm()[0],
         results_file=args.output,
         enable_streaming=args.streaming,
     )

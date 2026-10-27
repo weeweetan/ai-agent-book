@@ -450,7 +450,7 @@ def main():
     if live_human and not args.confirm_human_consent:
         print("拒绝采集音频：真人验收路径必须显式传入 --confirm-human-consent")
         sys.exit(2)
-    has_llm_key = any(os.environ.get(k) for k in ("ARK_API_KEY", "MOONSHOT_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY"))
+    has_llm_key = any(os.environ.get(k) for k in ("ARK_API_KEY", "MOONSHOT_API_KEY", "DEEPSEEK_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY"))
     if args.simulate_user:
         speech_provider_available = (
             bool(os.environ.get("OPENAI_API_KEY"))

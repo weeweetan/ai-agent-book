@@ -4,6 +4,8 @@ Demonstrates the importance of KV cache through correct and incorrect implementa
 Uses local file system tools to read and search through code files.
 """
 
+from agentbook.providers import chat_completion, chat_request
+
 import json
 import os
 import re
@@ -355,8 +357,8 @@ class KVCacheAgent:
     """
     
     def __init__(self, api_key: str, mode: KVCacheMode = KVCacheMode.CORRECT,
-                 model: str = "kimi-k2.6", root_dir: str = ".",
-                 verbose: bool = True):
+                 model: str | None = None, root_dir: str = ".",
+                 verbose: bool = True, provider: str | None = None):
         """
         Initialize the agent
         
@@ -367,14 +369,12 @@ class KVCacheAgent:
             root_dir: Root directory for file operations
             verbose: If True, log detailed information
         """
-        # 默认走 Moonshot/Kimi 官方端点；若传入的是 OpenRouter key（sk-or-…），
-        # 则自动回退到 OpenRouter，并把 kimi-* 模型名映射为 moonshotai/kimi-k2。
-        # 端点、key 与模型名映射统一由 agentbook 的 provider 注册表维护；
-        # “这把 key 属于谁”只有调用方知道，因此在此处判定后再交给注册表解析。
-        from agentbook.providers import is_openrouter_key, resolve_backend
-
-        provider = "openrouter" if is_openrouter_key(api_key) else "kimi"
-        backend = resolve_backend(provider, model=model, api_key=api_key)
+        from agentbook.providers import example_provider, is_openrouter_key, resolve_example_backend
+        provider = example_provider(provider)
+        if is_openrouter_key(api_key) and provider == "kimi":
+            provider = "openrouter"
+        backend = resolve_example_backend(provider, model=model, api_key=api_key,
+                                          default_model="kimi-k2.6" if provider == "kimi" else None)
         self.client = OpenAI(
             api_key=backend.api_key,
             base_url=backend.base_url
@@ -676,7 +676,8 @@ Always think step by step and use tools to gather information. When you have eno
             # Make API call
             api_start = time.time()
             try:
-                response = self.client.chat.completions.create(**request_data)
+                request_data = chat_request(**request_data)
+                response = chat_completion(self.client, **request_data)
                 
                 # Record TTFT for this iteration
                 iteration_ttft = time.time() - api_start

@@ -27,6 +27,10 @@
     python demo.py --model gpt-4o-mini    # 指定模型(默认 gpt-4o-mini)
     python demo.py --puzzles my.json     # 换一份谜题数据集
 """
+
+from agentbook.providers import chat_completion, chat_request
+
+from agentbook.providers import example_provider, example_model
 import argparse
 import datetime as dt
 import json
@@ -55,7 +59,7 @@ def _load_dotenv(path=".env"):
 
 _load_dotenv()
 
-MODEL = os.environ.get("MODEL", "gpt-4o-mini")
+MODEL = os.environ.get("MODEL") or example_model(example_provider(default="openai"), default_model="gpt-4o-mini" if example_provider(default="openai") == "openai" else None)
 PROVIDER = "unknown"
 
 # --- 通用 OpenRouter 兜底：无直连 key 时自动改走 OpenRouter ---
@@ -80,45 +84,20 @@ def map_model_to_openrouter(model: str) -> str:
     return "openai/gpt-5.6-luna"
 
 
-def build_client_and_model(provider="auto"):
-    """构造 OpenAI 客户端并返回 (client, model)。
-
-    - 有 OPENAI_API_KEY：直连（默认模型 gpt-4o-mini 是普通 gpt id，可直连 OpenAI）。
-      仅当模型是 gpt-5.x 且同时设置了 OPENROUTER_API_KEY 时才优先走 OpenRouter
-      （直连 gpt-5.x 需组织实名认证）。
-    - 无 OPENAI_API_KEY 但有 OPENROUTER_API_KEY：整体改走 OpenRouter。
-    """
+def build_client_and_model(provider="auto", model_override=None):
     from openai import OpenAI
+    from agentbook.providers import resolve_example_backend
     global MODEL, PROVIDER
-    choices = {
-        "ollama": ("ollama", os.environ.get(
-            "OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1"
-        ), MODEL),
-        "openai": (os.environ.get("OPENAI_API_KEY"),
-                   os.environ.get("OPENAI_BASE_URL"), MODEL),
-        "openrouter": (os.environ.get("OPENROUTER_API_KEY"),
-                       OPENROUTER_BASE_URL, map_model_to_openrouter(MODEL)),
-        "moonshot": (os.environ.get("MOONSHOT_API_KEY"),
-                     "https://api.moonshot.cn/v1", MODEL),
-        "ark": (os.environ.get("ARK_API_KEY"),
-                "https://ark.cn-beijing.volces.com/api/v3", MODEL),
-    }
-    if provider == "auto":
-        provider = next(
-            (name for name in ("openai", "openrouter", "moonshot", "ark")
-             if choices[name][0]),
-            "openai",
-        )
-    if provider not in choices:
-        raise ValueError(f"unsupported provider: {provider}")
-    api_key, base_url, MODEL = choices[provider]
-    if not api_key:
-        raise SystemExit(f"错误：provider={provider} 缺少对应 API key")
-    PROVIDER = provider
-    kw = {"api_key": api_key, "timeout": 180.0, "max_retries": 5}
-    if base_url:
-        kw["base_url"] = base_url
-    return OpenAI(**kw), MODEL
+    if provider == "auto" and not os.getenv("LLM_PROVIDER"):
+        provider = next((p for p, key in (("openai", "OPENAI_API_KEY"),
+            ("deepseek", "DEEPSEEK_API_KEY"), ("openrouter", "OPENROUTER_API_KEY"),
+            ("moonshot", "MOONSHOT_API_KEY"), ("ark", "ARK_API_KEY")) if os.getenv(key)), "openai")
+    selected = example_provider(provider, default="openai")
+    backend = resolve_example_backend(selected, model=model_override or os.getenv("MODEL"),
+                                          default_model="gpt-4o-mini" if selected == "openai" else None)
+    MODEL = backend.model
+    PROVIDER = "openrouter" if backend.using_openrouter else backend.provider
+    return OpenAI(api_key=backend.api_key, base_url=backend.base_url, timeout=180.0, max_retries=5), MODEL
 
 
 def _reasoning(model: str) -> bool:
@@ -239,7 +218,8 @@ def call_model(client, system, user, use_tools):
                 tools=TOOLS,
                 tool_choice="required" if not codes else "auto",
             )
-        resp = client.chat.completions.create(**kwargs)
+        kwargs = chat_request(**kwargs)
+        resp = chat_completion(client, **kwargs)
         msg = resp.choices[0].message
         usage = getattr(resp, "usage", None)
         receipts.append({
@@ -497,11 +477,11 @@ def main():
                     default="both",
                     help="运行模式：both=纯思考+代码辅助(默认)；pure=仅纯思考；"
                          "code=仅代码辅助；solver=离线约束求解基线(无需 API)")
-    ap.add_argument("--model", default=MODEL,
+    ap.add_argument("--model", default=None,
                     help=f"LLM 模型名(默认 {MODEL}；solver 模式忽略)")
     ap.add_argument(
         "--provider",
-        choices=["auto", "ollama", "openai", "openrouter", "moonshot", "ark"],
+        choices=["auto", "ollama", "openai", "deepseek", "openrouter", "moonshot", "ark"],
         default="auto",
         help="explicit API provider; recorded in the saved evidence",
     )
@@ -524,7 +504,7 @@ def main():
         help="resume successful per-arm rows from OUTPUT.checkpoint.json",
     )
     args = ap.parse_args()
-    MODEL = args.model
+    MODEL = args.model or MODEL
 
     with open(args.puzzles, encoding="utf-8") as f:
         puzzles = json.load(f)
@@ -570,7 +550,7 @@ def main():
         print("== 约束求解(solver，离线) ==")
         results["solver"] = run_solver(puzzles)
     else:
-        client, MODEL = build_client_and_model(args.provider)
+        client, MODEL = build_client_and_model(args.provider, model_override=args.model)
         print(f"供应商：{PROVIDER}    模型：{MODEL}    题目数：{len(puzzles)}    模式：{args.mode}\n")
         for m in llm_modes:
             print(f"== {LABELS[m]}({m}) ==")

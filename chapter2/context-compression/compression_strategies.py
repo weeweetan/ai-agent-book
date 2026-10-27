@@ -2,6 +2,8 @@
 Context Compression Strategies for the experiment
 """
 
+from agentbook.providers import chat_completion
+
 import json
 import logging
 from typing import List, Dict, Any, Optional, Tuple
@@ -174,7 +176,7 @@ Provide a focused summary:"""
             if self.enable_streaming:
                 # Stream the summary to console
                 print(f"\n📝 Creating simple summary...\n", flush=True)
-                stream = self.client.chat.completions.create(
+                stream = chat_completion(self.client,
                     model=self.model,
                     messages=[
                         {"role": "system", "content": "You are a helpful assistant that creates concise summaries."},
@@ -198,7 +200,7 @@ Provide a focused summary:"""
                 print("\n")  # New lines after streaming
                 compressed = "".join(summary_parts)
             else:
-                response = self.client.chat.completions.create(
+                response = chat_completion(self.client,
                     model=self.model,
                     messages=[
                         {"role": "system", "content": "You are a helpful assistant that creates concise summaries."},
@@ -290,7 +292,7 @@ Provide a concise summary:"""
                 if self.enable_streaming:
                     # Stream the summary to console
                     print(f"\n📝 Summarizing: {result.get('title', 'N/A')[:50]}...", end=" ", flush=True)
-                    stream = self.client.chat.completions.create(
+                    stream = chat_completion(self.client,
                         model=self.model,
                         messages=[
                             {"role": "system", "content": "You are a helpful assistant that creates concise summaries."},
@@ -310,7 +312,7 @@ Provide a concise summary:"""
                     print()  # New line after streaming
                     summary = "".join(summary_parts)
                 else:
-                    response = self.client.chat.completions.create(
+                    response = chat_completion(self.client,
                         model=self.model,
                         messages=[
                             {"role": "system", "content": "You are a helpful assistant that creates concise summaries."},
@@ -399,7 +401,7 @@ Provide a comprehensive summary:"""
             if self.enable_streaming:
                 # Stream the summary to console
                 print(f"\n📄 Creating combined summary for all {len(search_results.get('results', []))} pages...\n", flush=True)
-                stream = self.client.chat.completions.create(
+                stream = chat_completion(self.client,
                     model=self.model,
                     messages=[
                         {"role": "system", "content": "You are a helpful assistant that creates comprehensive summaries."},
@@ -419,7 +421,7 @@ Provide a comprehensive summary:"""
                 print("\n")  # New lines after streaming
                 summary = "".join(summary_parts)
             else:
-                response = self.client.chat.completions.create(
+                response = chat_completion(self.client,
                     model=self.model,
                     messages=[
                         {"role": "system", "content": "You are a helpful assistant that creates comprehensive summaries."},
@@ -507,7 +509,7 @@ Provide a query-focused summary:"""
             if self.enable_streaming:
                 # Stream the summary to console
                 print(f"\n🎯 Creating context-aware summary for query: '{query[:50]}...'\n", flush=True)
-                stream = self.client.chat.completions.create(
+                stream = chat_completion(self.client,
                     model=self.model,
                     messages=[
                         {"role": "system", "content": "You are a helpful assistant that creates focused, context-aware summaries."},
@@ -527,7 +529,7 @@ Provide a query-focused summary:"""
                 print("\n")  # New lines after streaming
                 summary = "".join(summary_parts)
             else:
-                response = self.client.chat.completions.create(
+                response = chat_completion(self.client,
                     model=self.model,
                     messages=[
                         {"role": "system", "content": "You are a helpful assistant that creates focused, context-aware summaries."},
@@ -619,7 +621,7 @@ Provide a query-focused summary with citations:"""
             if self.enable_streaming:
                 # Stream the summary to console
                 print(f"\n📚 Creating summary with citations for: '{query[:50]}...'\n", flush=True)
-                stream = self.client.chat.completions.create(
+                stream = chat_completion(self.client,
                     model=self.model,
                     messages=[
                         {"role": "system", "content": "You are a helpful assistant that creates focused summaries with proper citations."},
@@ -639,7 +641,7 @@ Provide a query-focused summary with citations:"""
                 print("\n")  # New lines after streaming
                 summary = "".join(summary_parts)
             else:
-                response = self.client.chat.completions.create(
+                response = chat_completion(self.client,
                     model=self.model,
                     messages=[
                         {"role": "system", "content": "You are a helpful assistant that creates focused summaries with proper citations."},

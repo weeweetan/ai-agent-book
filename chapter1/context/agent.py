@@ -4,13 +4,15 @@ An agent using Qwen model from SiliconFlow with document parsing, currency conve
 Designed to demonstrate the importance of context through ablation studies.
 """
 
+from agentbook.providers import chat_completion, chat_request
+
 import json
 import logging
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 import requests
-from openai import OpenAI
+from openai import APITimeoutError, OpenAI
 import pypdf
 from io import BytesIO
 import math
@@ -410,8 +412,8 @@ class ContextAwareAgent:
         # OpenRouter fallback: when the provider's own key is missing but
         # OPENROUTER_API_KEY is set, the request routes through OpenRouter with a
         # mapped model id. Behaviour is unchanged when the provider key is set.
-        from config import resolve_backend
-        backend = resolve_backend(self.provider, model=model, api_key=api_key)
+        from agentbook.providers import resolve_example_backend
+        backend = resolve_example_backend(self.provider, model=model, api_key=api_key)
         resolved_key = backend.api_key
         resolved_base_url = backend.base_url
         self.model = backend.model
@@ -780,13 +782,18 @@ Important: When you have gathered all necessary information and computed the fin
                     "timeout": 180,  # 180 second timeout for main execution
                 }
                 if self.provider == "deepseek" and not getattr(self, "using_openrouter", False):
-                    create_kwargs["extra_body"] = {"thinking": {"type": "enabled"}}
-                    request_data["thinking"] = {"type": "enabled"}
+                    thinking = "disabled" if self.context_mode == ContextMode.NO_REASONING else "enabled"
+                    create_kwargs["extra_body"] = {"thinking": {"type": thinking}}
+                    request_data["thinking"] = {"type": thinking}
 
                 logger.info(f"Sending request to {self.provider} API")
 
                 # Call the model with tools
-                response = self.client.chat.completions.create(**create_kwargs)
+                create_kwargs = chat_request(**create_kwargs)
+                request_data = {key: value for key, value in create_kwargs.items()
+                                if key not in {"timeout", "extra_body"} and value is not None}
+                request_data.update(create_kwargs.get("extra_body") or {})
+                response = chat_completion(self.client, **create_kwargs)
 
                 response_dict = (
                     response.model_dump() if hasattr(response, "model_dump")
@@ -906,7 +913,7 @@ Important: When you have gathered all necessary information and computed the fin
             # TimeoutError) when the request exceeds the configured 180s
             # timeout below; catch it explicitly so timeouts are reported
             # as timeouts instead of falling through to the generic path.
-            except (openai.APITimeoutError, requests.exceptions.Timeout) as exc:
+            except (APITimeoutError, requests.exceptions.Timeout) as exc:
                 logger.error(f"Request timed out after 180 seconds: {exc}")
                 return {
                     "error": "Request timed out. The model is taking too long to respond. Try a simpler task or different provider.",

@@ -1,5 +1,7 @@
 """LLM helper for safety checks, approval, and summarization."""
 
+from agentbook.providers import chat_completion, chat_request
+
 import json
 import datetime as dt
 import os
@@ -155,7 +157,8 @@ Respond in JSON format:
                 "max_tokens": Config.MAX_TOKENS,
             }
             started = time.perf_counter()
-            response = self.client.chat.completions.create(**request)
+            request = chat_request(**request)
+            response = chat_completion(self.client, **request)
             self._record_receipt("dangerous_operation_review", request, response,
                                  time.perf_counter() - started)
 
@@ -196,7 +199,7 @@ Provide a concise summary that captures the essential information."""
         
         try:
             self._ensure_client()
-            response = self.client.chat.completions.create(
+            response = chat_completion(self.client,
                 model=self.model,
                 messages=[
                     {
@@ -249,7 +252,7 @@ Be concise and practical."""
         
         try:
             self._ensure_client()
-            response = self.client.chat.completions.create(
+            response = chat_completion(self.client,
                 model=self.model,
                 messages=[
                     {
@@ -322,7 +325,7 @@ Respond in JSON format:
         
         try:
             self._ensure_client()
-            response = self.client.chat.completions.create(
+            response = chat_completion(self.client,
                 model=self.model,
                 messages=[
                     {

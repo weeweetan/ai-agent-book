@@ -355,7 +355,7 @@ def parse_args(argv=None):
                    help="Reviewer / 独立评委看图用的模型，必须支持图像输入，覆盖 VISION_MODEL "
                         f"环境变量（默认 {agents.VISION_MODEL}）。")
     p.add_argument(
-        "--provider", choices=["auto", "openai", "openrouter", "moonshot", "ark"],
+        "--provider", choices=["auto", "openai", "deepseek", "openrouter", "moonshot", "ark"],
         default="auto", help="文本与 Vision 调用的真实 API 提供商",
     )
     p.add_argument("--mode", choices=["both", "dual", "single"], default="both",
@@ -417,13 +417,12 @@ def main(argv=None):
     os.environ["PPT_RECEIPT_CHECKPOINT"] = os.path.join(
         OUT_DIR, "receipts.checkpoint.json"
     )
+    agents.configure_provider(args.provider)
     # 模型覆盖（--text-model / --vision-model 优先于环境变量）
     if args.text_model:
         agents.TEXT_MODEL = args.text_model
     if args.vision_model:
         agents.VISION_MODEL = args.vision_model
-    agents.configure_provider(args.provider)
-
     if args.smoke:
         smoke_test()
         return
@@ -436,18 +435,11 @@ def main(argv=None):
     if args.paper and not os.path.exists(args.paper):
         print(f"找不到论文文件：{args.paper}（用 --paper 指定，或参考默认 paper/sample_paper.md）")
         sys.exit(1)
-    provider_keys = {
-        "ark": "ARK_API_KEY", "moonshot": "MOONSHOT_API_KEY",
-        "openrouter": "OPENROUTER_API_KEY", "openai": "OPENAI_API_KEY",
-    }
-    required_key = provider_keys.get(args.provider)
-    if required_key and not os.environ.get(required_key):
-        print(f"请先设置 {required_key}（可参考 env.example）")
-        sys.exit(1)
-    if args.provider == "auto" and not any(os.environ.get(key) for key in (
-        "OPENAI_API_KEY", "OPENROUTER_API_KEY"
-    )):
-        print("auto provider 需要 OPENAI_API_KEY 或 OPENROUTER_API_KEY")
+    from agentbook.providers import resolve_example_backend
+    try:
+        resolve_example_backend(args.provider, default="openai")
+    except ValueError as exc:
+        print(str(exc))
         sys.exit(1)
 
     banner("准备：固定真实论文 PDF + 原论文图")

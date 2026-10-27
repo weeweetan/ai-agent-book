@@ -20,6 +20,10 @@
 提示：想在无 API / 无网络时验证整条 ffmpeg 合成流水线，用 `python demo.py --offline`。
 """
 
+from agentbook.providers import chat_completion
+
+from agentbook.providers import example_model, example_provider, PROVIDERS, resolve_example_backend
+
 import argparse
 import json
 import os
@@ -50,7 +54,7 @@ SEG_DIR = OUTPUT_DIR / "segments"
 FINAL_MP4 = OUTPUT_DIR / "lecture.mp4"
 
 # 默认模型/音色：优先取环境变量，命令行 --text-model 等可再覆盖。
-DEFAULT_TEXT_MODEL = os.getenv("TEXT_MODEL", "gpt-5.6-luna")
+DEFAULT_TEXT_MODEL = os.getenv("TEXT_MODEL") or example_model(example_provider(default="openai"))
 DEFAULT_TTS_MODEL = os.getenv("TTS_MODEL", "tts-1")
 DEFAULT_TTS_VOICE = os.getenv("TTS_VOICE", "alloy")
 
@@ -278,7 +282,7 @@ def generate_narration(client, cfg: Config, slide: dict, index: int, total: int)
     # 推理模型（gpt-5 / o 系列等）可能不接受自定义 temperature，统一置 1。
     _reasoning = any(k in (cfg.text_model or "").lower()
                      for k in ("gpt-5", "o1", "o3", "o4", "thinking", "reasoner", "kimi-k3"))
-    resp = client.chat.completions.create(
+    resp = chat_completion(client,
         model=cfg.text_model,
         messages=[{"role": "user", "content": prompt}],
         temperature=1 if _reasoning else 0.7,
@@ -424,7 +428,7 @@ def main(cfg: Config) -> None:
         api_key = os.getenv("OPENAI_API_KEY")
         base_url = os.getenv("OPENAI_BASE_URL") or None
         orkey = os.getenv("OPENROUTER_API_KEY")
-        if not (api_key or orkey):
+        if not (PROVIDERS[example_provider(default="openai")].api_key() or orkey):
             sys.exit("[错误] 未设置 OPENAI_API_KEY（或 OPENROUTER_API_KEY 兜底），请复制 env.example 为 .env 并填入；"
                      "或用 --offline 在无 API 时验证合成流水线。")
         from openai import OpenAI  # 延迟导入：--offline 时无需安装/联网 openai
@@ -434,7 +438,7 @@ def main(cfg: Config) -> None:
         # gpt-5.x 在有 OPENROUTER_API_KEY 时改走 OpenRouter（直连需组织实名认证）。
         from agentbook.providers import resolve_backend
 
-        backend = resolve_backend("openai", model=cfg.text_model, chosen_by_reader=False)
+        backend = resolve_example_backend(model=cfg.text_model, default="openai")
         cfg.text_model = backend.model
         client = OpenAI(
             api_key=backend.api_key, base_url=backend.base_url, timeout=120.0, max_retries=3

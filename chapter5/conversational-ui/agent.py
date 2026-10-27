@@ -18,6 +18,8 @@
   OPENROUTER_API_KEY（可选，无直连 key 时自动改走 OpenRouter 兜底）
 """
 
+from agentbook.providers import chat_completion
+
 import os
 import json
 from pathlib import Path
@@ -47,12 +49,10 @@ def build_client_and_model():
     gpt-5.x 在有 OPENROUTER_API_KEY 时改走 OpenRouter（直连需组织实名认证，
     且不允许 function tools 与推理并存，而本实验正是用 function calling 改前端）。
     """
-    from agentbook.providers import resolve_backend
+    from agentbook.providers import resolve_example_backend
 
     try:
-        backend = resolve_backend(
-            "openai", model=os.getenv("MODEL", "gpt-5.6-luna"), chosen_by_reader=False
-        )
+        backend = resolve_example_backend(model=os.getenv("MODEL"), default="openai")
     except ValueError as exc:
         raise SystemExit(
             "未找到 OPENAI_API_KEY（或 OPENROUTER_API_KEY 兜底），请先在环境变量或 .env 中设置。"
@@ -141,7 +141,7 @@ def customize(client, model, frontend_dir: Path, requirement: str) -> dict:
         f"请调用 apply_edits 返回需要改写的文件全文。"
     )
 
-    resp = client.chat.completions.create(
+    resp = chat_completion(client,
         model=model,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},

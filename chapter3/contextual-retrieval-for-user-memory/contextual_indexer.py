@@ -4,6 +4,8 @@ This module combines contextual chunking for conversation histories with
 advanced JSON cards for structured user memory.
 """
 
+from agentbook.providers import chat_completion
+
 import os
 import json
 import logging
@@ -309,7 +311,7 @@ Example format:
 Extract memory cards:"""
             
             # Call LLM for extraction
-            response = self._llm_client.chat.completions.create(
+            response = chat_completion(self._llm_client,
                 model=self._llm_model,
                 messages=[
                     {"role": "system", "content": "You are a memory extraction assistant. Extract structured information from conversations into memory cards."},

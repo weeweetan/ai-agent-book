@@ -5,6 +5,8 @@ for conversation histories. Each conversation chunk gets contextualized with
 information about its position and meaning within the full conversation.
 """
 
+from agentbook.providers import chat_completion
+
 import json
 import hashlib
 import logging
@@ -305,7 +307,7 @@ Please provide a brief context (2-3 sentences) that describes:
 Write the context in a way that would help someone quickly understand what this conversation segment is about when searching through conversation history. Use the same language as the conversation."""
 
             # Generate context
-            response = self.client.chat.completions.create(
+            response = chat_completion(self.client,
                 model=self.model,
                 messages=[
                     {"role": "user", "content": prompt}

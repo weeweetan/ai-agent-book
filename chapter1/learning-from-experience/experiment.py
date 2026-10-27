@@ -3,6 +3,8 @@ Experiment runner to compare traditional RL vs LLM-based in-context learning.
 This replicates the key insights from "The Second Half" blog post.
 """
 
+from agentbook.providers import PROVIDERS, example_provider, example_model
+
 import os
 import json
 import time
@@ -158,7 +160,7 @@ class ExperimentRunner:
                           num_eval_episodes: int = 10,
                           verbose: bool = True,
                           stochastic: bool = False,
-                          model: str = "kimi-k3") -> Dict[str, Any]:
+                          model: str = None) -> Dict[str, Any]:
         """
         Run experiment with LLM-based in-context learning agent.
         
@@ -174,7 +176,7 @@ class ExperimentRunner:
 
         # Check for API key
         provider = os.getenv("LLM_PROVIDER", "moonshot").lower()
-        api_key = os.getenv("DASHSCOPE_API_KEY") if provider in {"dashscope", "qwen", "bailian"} else os.getenv("MOONSHOT_API_KEY")
+        api_key = PROVIDERS[example_provider(provider)].api_key()
         if not api_key and not os.getenv("OPENROUTER_API_KEY"):
             print(f"\n⚠️ Warning: API key for provider '{provider}' not set. Skipping LLM experiment.")
             print("📝 Set DASHSCOPE_API_KEY for dashscope/qwen/bailian or MOONSHOT_API_KEY for moonshot/kimi")
@@ -412,7 +414,7 @@ class ExperimentRunner:
                            eval_episodes: int = 100,
                            verbose: bool = False,
                            stochastic: bool = False,
-                           model: str = "kimi-k3",
+                           model: str = None,
                            checkpoint_interval: int = 1000,
                            rl_hyperparams: Dict[str, float] = None):
         """
@@ -528,7 +530,7 @@ def main():
         help="学习曲线采样间隔：每 N 局记录一次胜率/Q 表规模（默认 1000）"
     )
     parser.add_argument(
-        "--model", type=str, default=os.getenv("MOONSHOT_MODEL", "kimi-k3"),
+        "--model", type=str, default=example_model(example_provider()),
         help="LLM 模型名称（Moonshot/Kimi，默认 kimi-k3，可用 MOONSHOT_MODEL 环境变量覆盖）"
     )
     parser.add_argument(

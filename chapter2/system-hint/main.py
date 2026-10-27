@@ -3,6 +3,8 @@ Main entry point for System-Hint Enhanced Agent
 Supports command-line tasks and interactive mode
 """
 
+from agentbook.providers import PROVIDERS, example_provider
+
 import os
 import sys
 import json
@@ -91,10 +93,10 @@ def get_sample_task() -> str:
 
 
 def execute_single_task(task: str, config: SystemHintConfig = None, verbose: bool = False,
-                        provider: str = "kimi", model: str = None):
+                        provider: str = None, model: str = None):
     """Execute a single task with the agent"""
-    api_key = os.getenv("KIMI_API_KEY") or os.getenv("MOONSHOT_API_KEY") or os.getenv("OPENROUTER_API_KEY")
-    if not api_key:
+    api_key = PROVIDERS[example_provider(provider)].api_key()
+    if not api_key and not os.getenv("OPENROUTER_API_KEY"):
         print("❌ Error: Please set KIMI_API_KEY environment variable")
         print("   export KIMI_API_KEY='your-api-key-here'")
         print("   （如果只想离线查看状态栏效果，请运行 python main.py --mode preview）")
@@ -131,8 +133,8 @@ def interactive_mode():
     """Run the agent in interactive mode"""
     print_section("Interactive Mode - System-Hint Agent")
     
-    api_key = os.getenv("KIMI_API_KEY") or os.getenv("MOONSHOT_API_KEY") or os.getenv("OPENROUTER_API_KEY")
-    if not api_key:
+    api_key = PROVIDERS[example_provider()].api_key()
+    if not api_key and not os.getenv("OPENROUTER_API_KEY"):
         print("❌ Error: Please set KIMI_API_KEY environment variable")
         print("   export KIMI_API_KEY='your-api-key-here'")
         return
@@ -148,7 +150,7 @@ def interactive_mode():
     
     agent = SystemHintAgent(
         api_key=api_key,
-        provider="kimi",
+        provider=example_provider(),
         config=config,
         verbose=False
     )
@@ -217,8 +219,8 @@ def demo_basic_features():
     """Demonstrate basic system hint features"""
     print_section("Demo: Basic System Hint Features")
     
-    api_key = os.getenv("KIMI_API_KEY") or os.getenv("MOONSHOT_API_KEY") or os.getenv("OPENROUTER_API_KEY")
-    if not api_key:
+    api_key = PROVIDERS[example_provider()].api_key()
+    if not api_key and not os.getenv("OPENROUTER_API_KEY"):
         print("❌ Please set KIMI_API_KEY environment variable")
         return
     
@@ -232,7 +234,7 @@ def demo_basic_features():
     
     agent = SystemHintAgent(
         api_key=api_key,
-        provider="kimi",
+        provider=example_provider(),
         config=config,
         verbose=False
     )
@@ -253,8 +255,8 @@ def demo_tool_loop_prevention():
     """Demonstrate tool call loop prevention"""
     print_section("Demo: Tool Call Loop Prevention")
     
-    api_key = os.getenv("KIMI_API_KEY") or os.getenv("MOONSHOT_API_KEY") or os.getenv("OPENROUTER_API_KEY")
-    if not api_key:
+    api_key = PROVIDERS[example_provider()].api_key()
+    if not api_key and not os.getenv("OPENROUTER_API_KEY"):
         print("❌ Please set KIMI_API_KEY environment variable")
         return
     
@@ -268,7 +270,7 @@ def demo_tool_loop_prevention():
     
     agent = SystemHintAgent(
         api_key=api_key,
-        provider="kimi",
+        provider=example_provider(),
         config=config,
         verbose=False
     )
@@ -290,8 +292,8 @@ def demo_comparison():
     """Compare with and without system hints"""
     print_section("Demo: System Hints Comparison")
     
-    api_key = os.getenv("KIMI_API_KEY") or os.getenv("MOONSHOT_API_KEY") or os.getenv("OPENROUTER_API_KEY")
-    if not api_key:
+    api_key = PROVIDERS[example_provider()].api_key()
+    if not api_key and not os.getenv("OPENROUTER_API_KEY"):
         print("❌ Please set KIMI_API_KEY environment variable")
         return
     
@@ -309,7 +311,7 @@ def demo_comparison():
     
     agent_with = SystemHintAgent(
         api_key=api_key,
-        provider="kimi",
+        provider=example_provider(),
         config=config_with,
         verbose=False
     )
@@ -331,7 +333,7 @@ def demo_comparison():
     
     agent_without = SystemHintAgent(
         api_key=api_key,
-        provider="kimi",
+        provider=example_provider(),
         config=config_without,
         verbose=False
     )
@@ -509,7 +511,7 @@ def main():
     parser.add_argument(
         "--provider",
         type=str,
-        default="kimi",
+        default=example_provider(),
         help="LLM 提供方（默认：kimi，兼容 moonshot）"
     )
 
@@ -564,6 +566,9 @@ def main():
     )
 
     args = parser.parse_args()
+    os.environ["LLM_PROVIDER"] = args.provider
+    if args.model:
+        os.environ["LLM_MODEL"] = args.model
 
     # Configure based on command-line flags
     config = SystemHintConfig(

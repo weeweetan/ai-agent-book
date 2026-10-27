@@ -1,5 +1,7 @@
 """Configuration for Agentic RAG User Memory Evaluation System"""
 
+from agentbook.providers import PROVIDERS, canonical_provider, resolve_example_backend
+
 import os
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, List
@@ -122,43 +124,24 @@ class LLMConfig:
             "base_url": "https://api.together.xyz"
         },
         "deepseek": {
-            "model": "deepseek-reasoner",
+            "model": "deepseek-flash",
             "base_url": "https://api.deepseek.com/v1"
         }
     }
     
     def get_client_config(self) -> tuple[Dict[str, Any], str]:
-        """Get OpenAI client configuration"""
-        provider = self.provider.lower()
-        provider = {"qwen": "dashscope", "bailian": "dashscope"}.get(
-            provider, provider
-        )
-        defaults = self.PROVIDER_DEFAULTS.get(provider, {})
-        
-        # Determine API key
-        api_key = self.api_key or os.getenv(f"{provider.upper()}_API_KEY")
-        if not api_key and provider == "moonshot":
-            api_key = os.getenv("KIMI_API_KEY")  # Fallback for moonshot
-
-        # Determine model
-        model = self.model or defaults.get("model", "gpt-5.6-luna")
-
-        # Universal OpenRouter fallback: primary provider key absent but
-        # OPENROUTER_API_KEY present -> route through OpenRouter.
-        if not api_key and provider != "openrouter" and os.getenv("OPENROUTER_API_KEY"):
-            return {
-                "api_key": os.getenv("OPENROUTER_API_KEY"),
-                "base_url": "https://openrouter.ai/api/v1",
-            }, _openrouter_model_id(model)
-
-        # Build client config
-        client_config = {"api_key": api_key}
-        
-        # Add base URL if needed
-        if base_url := defaults.get("base_url"):
-            client_config["base_url"] = base_url
-        
-        return client_config, model
+        provider = canonical_provider(self.provider)
+        if provider in PROVIDERS:
+            backend = resolve_example_backend(provider, self.model, self.api_key)
+            return {"api_key": backend.api_key, "base_url": backend.base_url}, backend.model
+        # Retain the experiment's Groq / Together support.
+        defaults = self.PROVIDER_DEFAULTS.get(provider)
+        if defaults is None:
+            raise ValueError(f"Unsupported provider: {provider}")
+        key = self.api_key or os.getenv(f"{provider.upper()}_API_KEY")
+        if not key:
+            raise ValueError(f"Set {provider.upper()}_API_KEY")
+        return {"api_key": key, "base_url": defaults["base_url"]}, self.model or defaults["model"]
 
 
 @dataclass

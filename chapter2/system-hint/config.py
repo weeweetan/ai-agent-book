@@ -43,9 +43,9 @@ class AgentConfig:
         provider = canonical_provider(os.getenv("LLM_PROVIDER", "kimi"))
         return cls(
             # Provider credentials and aliases come from the shared registry.
-            api_key=PROVIDERS.get(provider, PROVIDERS["kimi"]).api_key() or os.getenv("OPENROUTER_API_KEY"),
+            api_key=PROVIDERS.get(provider, PROVIDERS["kimi"]).api_key(),
             provider=provider,
-            model=os.getenv("LLM_MODEL"),
+            model=os.getenv("LLM_MODEL") or os.getenv("MODEL_NAME"),
             enable_timestamps=os.getenv("ENABLE_TIMESTAMPS", "true").lower() == "true",
             enable_tool_counter=os.getenv("ENABLE_TOOL_COUNTER", "true").lower() == "true",
             enable_todo_list=os.getenv("ENABLE_TODO_LIST", "true").lower() == "true",
@@ -60,11 +60,11 @@ class AgentConfig:
     
     def validate(self) -> bool:
         """Validate the configuration"""
-        if not self.api_key:
+        if not self.api_key and not os.getenv("OPENROUTER_API_KEY"):
             raise ValueError("API key is required. Set the selected provider's key or OPENROUTER_API_KEY fallback.")
 
         self.provider = canonical_provider(self.provider)
-        if self.provider not in {"kimi", "moonshot", "dashscope"}:
+        if self.provider not in PROVIDERS:
             raise ValueError(f"Unsupported provider: {self.provider}")
         
         if self.max_iterations < 1:
@@ -124,7 +124,8 @@ def get_config(preset: Optional[str] = None) -> AgentConfig:
     if preset and preset in PRESETS:
         config = PRESETS[preset]
         # Override with environment API key if available
-        config.api_key = os.getenv("KIMI_API_KEY") or os.getenv("MOONSHOT_API_KEY") or os.getenv("OPENROUTER_API_KEY")
+        environment = AgentConfig.from_env()
+        config.provider, config.api_key, config.model = environment.provider, environment.api_key, environment.model
         return config
     
     return AgentConfig.from_env()

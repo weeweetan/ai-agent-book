@@ -2,6 +2,8 @@
 Quick start script for testing Memobase Agent
 """
 
+from agentbook.providers import PROVIDERS, example_provider
+
 import os
 import sys
 from pathlib import Path
@@ -22,7 +24,7 @@ def quick_demo():
     
     # Check for API key
     provider = os.getenv("LLM_PROVIDER", "kimi").lower()
-    api_key = os.getenv("DASHSCOPE_API_KEY", "") if provider in {"dashscope", "qwen", "bailian"} else os.getenv("KIMI_API_KEY", "")
+    api_key = PROVIDERS[example_provider(provider)].api_key() or os.getenv("OPENROUTER_API_KEY")
     if not api_key or api_key == "your-kimi-api-key":
         print(f"\n⚠️  Warning: API key for provider '{provider}' not set properly!")
         print("Please set your API key in .env file or as environment variable")

@@ -88,6 +88,15 @@ class GeneratedAgent:
                 kwargs["temperature"] = 1
             else:
                 kwargs["temperature"] = 0
+            # Keep the generated project standalone: no agentbook dependency.
+            # Its teaching loop stores content/tools, so use DeepSeek's
+            # non-thinking mode instead of dropping required reasoning state.
+            if self.model.casefold().startswith("deepseek"):
+                kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
+            if self.model.casefold().startswith(("gpt-5", "o1", "o3", "o4")):
+                kwargs.pop("temperature", None)
+                if "max_tokens" in kwargs:
+                    kwargs["max_completion_tokens"] = kwargs.pop("max_tokens")
             response = self.client.chat.completions.create(**kwargs)
             message = response.choices[0].message
             messages.append(self._assistant_message(message))

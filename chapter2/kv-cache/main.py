@@ -3,6 +3,8 @@ Main script to demonstrate KV cache importance
 Runs the ReAct agent with different implementations and compares performance
 """
 
+from agentbook.providers import example_provider, example_model, PROVIDERS
+
 import os
 import sys
 import glob
@@ -28,7 +30,7 @@ from agent import KVCacheAgent, KVCacheMode, AgentMetrics, compare_implementatio
 # cleanest TTFT while still exposing the prefix-cache hit metric this demo needs.
 # (The non-reasoning moonshot-v1-* models do NOT report cached_tokens, so they
 # cannot demonstrate the cache effect.)
-DEFAULT_MODEL = "kimi-k2.6"
+DEFAULT_MODEL = example_model(example_provider(), default_model="kimi-k2.6" if example_provider() == "kimi" else None)
 DEFAULT_ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 
 # Configure logging
@@ -500,9 +502,8 @@ def main():
 
     # Get API key. 优先 Moonshot/Kimi 官方 key；缺失时回退到 OPENROUTER_API_KEY
     # （KVCacheAgent 会据此自动切换到 OpenRouter 端点并映射模型名）。
-    api_key = (args.api_key or os.getenv("MOONSHOT_API_KEY")
-               or os.getenv("KIMI_API_KEY") or os.getenv("OPENROUTER_API_KEY"))
-    if not api_key:
+    api_key = args.api_key or PROVIDERS[example_provider()].api_key()
+    if not api_key and not os.getenv("OPENROUTER_API_KEY"):
         logger.error("请通过 --api-key 或环境变量 MOONSHOT_API_KEY / KIMI_API_KEY / "
                      "OPENROUTER_API_KEY 提供 API Key；"
                      "若只想查看已有结果，可使用 --report（无需 API Key）。")

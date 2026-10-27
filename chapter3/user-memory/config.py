@@ -2,6 +2,8 @@
 Configuration module for User Memory System
 """
 
+from agentbook.providers import PROVIDERS, canonical_provider
+
 import os
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
@@ -66,7 +68,7 @@ class Config:
     """Configuration settings for the user memory system"""
     
     # Provider Configuration
-    PROVIDER: str = os.getenv("PROVIDER", "kimi").lower()  # Default to kimi
+    PROVIDER: str = os.getenv("LLM_PROVIDER", os.getenv("PROVIDER", "kimi")).lower()  # Default to kimi
     
     # API Keys for different providers
     MOONSHOT_API_KEY: str = os.getenv("MOONSHOT_API_KEY", "")  # For kimi/moonshot
@@ -133,6 +135,8 @@ class Config:
         provider = (provider or cls.PROVIDER).lower()
         provider = {"qwen": "dashscope", "bailian": "dashscope"}.get(provider, provider)
         
+        if provider in {"openai", "deepseek"}:
+            return PROVIDERS[provider].api_key()
         if provider in ["kimi", "moonshot"]:
             return cls.MOONSHOT_API_KEY
         elif provider == "dashscope":
@@ -161,7 +165,7 @@ class Config:
         provider = {"qwen": "dashscope", "bailian": "dashscope"}.get(provider, provider)
         api_key = cls.get_api_key(provider)
         
-        if not api_key:
+        if not api_key and not os.getenv("OPENROUTER_API_KEY"):
             print(f"ERROR: API key for provider '{provider}' is not set")
             if provider in ["kimi", "moonshot"]:
                 print("Please set MOONSHOT_API_KEY in .env file or as environment variable")

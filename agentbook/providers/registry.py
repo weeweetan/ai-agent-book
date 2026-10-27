@@ -44,7 +44,7 @@ PROVIDERS: dict[str, Provider] = {
         name="doubao",
         base_url="https://ark.cn-beijing.volces.com/api/v3",
         default_model="doubao-seed-1-6-thinking-250715",
-        key_vars=("ARK_API_KEY",),
+        key_vars=("ARK_API_KEY", "DOUBAO_API_KEY"),
     ),
     "kimi": Provider(
         name="kimi",
@@ -57,9 +57,9 @@ PROVIDERS: dict[str, Provider] = {
     "deepseek": Provider(
         name="deepseek",
         base_url="https://api.deepseek.com",
-        # V4 Flash is OpenAI-compatible with tool calling + thinking mode.
-        # Legacy deepseek-chat / deepseek-reasoner aliases deprecated 2026-07-24.
-        default_model="deepseek-v4-flash",
+        # Current Flash alias; supports Chat Completions and tool calling.
+        # Override with DEEPSEEK_MODEL / LLM_MODEL in runnable examples.
+        default_model="deepseek-flash",
         key_vars=("DEEPSEEK_API_KEY",),
         base_url_var="DEEPSEEK_BASE_URL",
     ),

@@ -16,6 +16,8 @@
 
 from __future__ import annotations
 
+from agentbook.providers import chat_completion
+
 import asyncio
 import datetime
 import json
@@ -267,7 +269,7 @@ class AgentRuntime:
         for _ in range(MAX_STEPS):
             messages = self.build_messages()
             _t = time.time()
-            resp = await self.client.chat.completions.create(
+            resp = await chat_completion(self.client,
                 model=self.model, messages=messages,
                 tools=TOOL_SCHEMAS, tool_choice="auto", **self.completion_params,
             )

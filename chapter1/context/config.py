@@ -2,6 +2,8 @@
 Configuration module for Context-Aware Agent
 """
 
+from agentbook.providers import example_model
+
 import os
 from typing import Optional
 from dotenv import load_dotenv
@@ -76,7 +78,7 @@ class Config:
     ZHIPU_BASE_URL: str = "https://open.bigmodel.cn/api/paas/v4"
     
     # Model Configuration (defaults based on provider)
-    MODEL_NAME: str = os.getenv("MODEL_NAME", "")  # Will be set based on provider if not specified
+    MODEL_NAME: str = os.getenv("LLM_MODEL") or os.getenv("MODEL_NAME", "")  # Will be set based on provider if not specified
     MODEL_TEMPERATURE: float = float(os.getenv("MODEL_TEMPERATURE", "0.3"))
     MODEL_MAX_TOKENS: int = int(os.getenv("MODEL_MAX_TOKENS", "1000"))
     
@@ -150,7 +152,7 @@ class Config:
             return cls.MODEL_NAME
 
         try:
-            return PROVIDERS[_canonical_provider(provider)].default_model
+            return example_model(provider)
         except KeyError:
             return ""
     

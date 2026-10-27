@@ -5,6 +5,8 @@ Default model is Kimi K3 (matching 实验 7-2 in the book); override via the
 `model` argument or the MOONSHOT_MODEL environment variable.
 """
 
+from agentbook.providers import chat_completion
+
 import os
 import json
 import re
@@ -68,7 +70,7 @@ class LLMAgent:
     
     def __init__(self,
                  api_key: str = None,
-                 model: str = "kimi-k3",  # Kimi K3 (see 实验 7-2)
+                 model: str | None = None,
                  base_url: str | None = None,
                  temperature: float = 0.7,
                  max_experiences: int = 50,
@@ -87,43 +89,14 @@ class LLMAgent:
             temperature: Sampling temperature for generation
             max_experiences: Maximum number of experiences to store
         """
-        # Set up an OpenAI-compatible client. The default remains Moonshot,
-        # while LLM_PROVIDER=dashscope/qwen/bailian enables direct Bailian use.
-        requested_provider = (provider or os.getenv("LLM_PROVIDER", "moonshot")).lower()
-        requested_provider = {"qwen": "dashscope", "bailian": "dashscope"}.get(
-            requested_provider, requested_provider
-        )
-        if requested_provider == "dashscope":
-            dashscope_model = model if model != "kimi-k3" else None
-            backend = resolve_backend(
-                "dashscope",
-                model=dashscope_model or os.getenv("DASHSCOPE_MODEL"),
-                api_key=api_key,
-            )
-            self.api_key, resolved_base_url, self.model = (
-                backend.api_key, backend.base_url, backend.model
-            )
-            self.using_openrouter = backend.using_openrouter
-            self.provider = backend.provider
-        else:
-            primary_key = api_key or os.getenv("MOONSHOT_API_KEY")
-            # Honour the kimi provider's base-URL override (KIMI_BASE_URL) so a
-            # proxy or regional endpoint is not silently replaced by the public
-            # one, which would send the reader's key to the wrong host and come
-            # back as an authentication error. The dashscope branch above gets
-            # the same behaviour from resolve_backend.
-            primary_base_url = base_url or PROVIDERS["kimi"].resolved_base_url()
-            self.api_key, resolved_base_url, self.model, self.using_openrouter = \
-                resolve_llm_backend(primary_key, primary_base_url, model)
-            self.provider = "openrouter" if self.using_openrouter else "moonshot"
-        self.base_url = resolved_base_url
-        if self.using_openrouter:
-            print(f"ℹ️  MOONSHOT_API_KEY not set; routing via OpenRouter (model: {self.model})")
-
-        self.client = openai.OpenAI(
-            api_key=self.api_key,
-            base_url=resolved_base_url
-        )
+        from agentbook.providers import resolve_example_backend
+        backend = resolve_example_backend(provider, model, api_key, base_url=base_url)
+        self.api_key = backend.api_key
+        self.base_url = backend.base_url
+        self.model = backend.model
+        self.using_openrouter = backend.using_openrouter
+        self.provider = "openrouter" if backend.using_openrouter else backend.provider
+        self.client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url)
         self.temperature = temperature
         
         # Experience memory for in-context learning
@@ -272,7 +245,7 @@ ACTION: take red key
             # Kimi K3 is a reasoning model: completion tokens can be consumed
             # by reasoning_content before message.content is emitted. Keep a
             # generous budget so the required ACTION line is not truncated.
-            response = self.client.chat.completions.create(
+            response = chat_completion(self.client,
                 model=self.model,
                 messages=request_messages,
                 temperature=requested_temperature,

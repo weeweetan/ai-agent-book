@@ -5,6 +5,8 @@ This agent combines:
 2. Contextual RAG for searching conversation history
 """
 
+from agentbook.providers import chat_completion
+
 import json
 import logging
 import time
@@ -310,7 +312,7 @@ Remember: Good service answers the question. Great service anticipates what come
             
             try:
                 # Generate response
-                response = self.client.chat.completions.create(
+                response = chat_completion(self.client,
                     model=self.model,
                     messages=messages,
                     tools=self.tools,

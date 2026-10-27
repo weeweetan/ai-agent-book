@@ -15,6 +15,8 @@
   python main.py --reload --port 8000        # 本文件自带的命令行入口（见 --help）
 """
 
+from agentbook.providers import chat_completion
+
 import os
 import argparse
 
@@ -66,10 +68,10 @@ def _llm_reply(message: str, model: str) -> str:
     # 端点、key 与模型名映射与 agent.py 一样交给 agentbook 的 provider 注册表：
     # chosen_by_reader=False 表示 "openai" 是本实验的默认值而非读者的显式选择，
     # 于是 gpt-5.x 在有 OPENROUTER_API_KEY 时改走 OpenRouter（直连需组织实名认证）。
-    from agentbook.providers import resolve_backend
+    from agentbook.providers import resolve_example_backend
 
     try:
-        backend = resolve_backend("openai", model=model, chosen_by_reader=False)
+        backend = resolve_example_backend(model=model, default="openai")
     except ValueError:
         return "（未配置 OPENAI_API_KEY 或 OPENROUTER_API_KEY，无法启用 LLM 模式；已回退占位回复）"
     model = backend.model
@@ -83,7 +85,7 @@ def _llm_reply(message: str, model: str) -> str:
 
     try:
         client = OpenAI(**client_kwargs)
-        resp = client.chat.completions.create(
+        resp = chat_completion(client,
             model=model,
             messages=[
                 {"role": "system", "content": "你是一个乐于助人的中文智能助手，回答简洁友好。"},

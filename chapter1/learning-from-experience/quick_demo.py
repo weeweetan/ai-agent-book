@@ -4,6 +4,8 @@ Quick demo showing the LLM learning process in detail.
 This script runs a simplified experiment to demonstrate how LLMs learn from experience.
 """
 
+from agentbook.providers import PROVIDERS, example_provider, example_model
+
 import os
 import sys
 from pathlib import Path
@@ -52,7 +54,7 @@ def run_llm_demo():
     
     # Check API key
     provider = os.getenv("LLM_PROVIDER", "moonshot").lower()
-    api_key = os.getenv("DASHSCOPE_API_KEY") if provider in {"dashscope", "qwen", "bailian"} else os.getenv("MOONSHOT_API_KEY")
+    api_key = PROVIDERS[example_provider(provider)].api_key()
     if not api_key and not os.getenv("OPENROUTER_API_KEY"):
         print(f"\n❌ Error: API key for provider '{provider}' not set.")
         print("Please set your Kimi API key:")
@@ -68,7 +70,7 @@ def run_llm_demo():
     # Initialize agent
     agent = LLMAgent(
         api_key=api_key,
-        model=os.getenv("MOONSHOT_MODEL", "kimi-k3"),
+        model=example_model(example_provider()),
         provider=provider,
         temperature=0.7,
         max_experiences=30

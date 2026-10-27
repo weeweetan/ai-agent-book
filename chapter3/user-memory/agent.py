@@ -3,6 +3,8 @@ User Memory Agent with Kimi K3 and React pattern
 Following the system-hint project's tool-based approach
 """
 
+from agentbook.providers import chat_completion
+
 import json
 import os
 import sys
@@ -78,64 +80,14 @@ class UserMemoryAgent:
         self.verbose = verbose
         self.config = config or UserMemoryConfig()
         
-        # Determine provider
-        self.provider = (provider or Config.PROVIDER).lower()
-        self.provider = {"qwen": "dashscope", "bailian": "dashscope"}.get(
-            self.provider, self.provider
+        from agentbook.providers import resolve_example_backend
+        backend = resolve_example_backend(
+            provider or Config.PROVIDER, model or Config.MODEL_NAME, api_key
         )
-        
-        # Get API key for provider
-        api_key = api_key or Config.get_api_key(self.provider)
+        self.provider = "openrouter" if backend.using_openrouter else backend.provider
+        self.model = backend.model
+        self.client = OpenAI(api_key=backend.api_key, base_url=backend.base_url)
 
-        # Universal OpenRouter fallback: primary provider key absent but
-        # OPENROUTER_API_KEY present -> route this agent through OpenRouter.
-        if not api_key and self.provider != "openrouter" and Config.OPENROUTER_API_KEY:
-            model = openrouter_model_id(model or PROVIDER_DEFAULT_MODELS.get(self.provider))
-            self.provider = "openrouter"
-            api_key = Config.OPENROUTER_API_KEY
-
-        if not api_key:
-            raise ValueError(
-                f"API key required for provider '{self.provider}'. Set the "
-                f"provider's key or OPENROUTER_API_KEY to use the OpenRouter fallback."
-            )
-
-        # Configure client based on provider
-        if self.provider == "dashscope":
-            self.client = OpenAI(
-                api_key=api_key,
-                base_url=Config.DASHSCOPE_BASE_URL
-            )
-            self.model = model or PROVIDER_DEFAULT_MODELS["dashscope"]
-        elif self.provider == "siliconflow":
-            self.client = OpenAI(
-                api_key=api_key,
-                base_url="https://api.siliconflow.cn/v1"
-            )
-            self.model = model or "Qwen/Qwen3-235B-A22B-Thinking-2507"
-        elif self.provider == "doubao":
-            self.client = OpenAI(
-                api_key=api_key,
-                base_url="https://ark.cn-beijing.volces.com/api/v3"
-            )
-            self.model = model or os.getenv("ARK_MODEL", "doubao-seed-1-6-250615")
-        elif self.provider == "kimi" or self.provider == "moonshot":
-            self.client = OpenAI(
-                api_key=api_key,
-                base_url="https://api.moonshot.cn/v1"
-            )
-            self.model = model or "kimi-k3"
-        elif self.provider == "openrouter":
-            self.client = OpenAI(
-                api_key=api_key,
-                base_url="https://openrouter.ai/api/v1"
-            )
-            # Default to Gemini 3.5 Flash, but allow any of the supported models
-            self.model = model or "google/gemini-3.5-flash"
-            # Supported models: google/gemini-3.5-flash, openai/gpt-5, anthropic/claude-sonnet-4
-        else:
-            raise ValueError(f"Unsupported provider: {self.provider}. Use 'dashscope'/'qwen'/'bailian', 'siliconflow', 'doubao', 'kimi', 'moonshot', or 'openrouter'")
-        
         # Initialize memory manager
         self.memory_manager = create_memory_manager(user_id, self.config.memory_mode)
         
@@ -649,7 +601,7 @@ Current Memory Context will be provided with each message."""
             
             try:
                 # Create streaming response
-                stream = self.client.chat.completions.create(
+                stream = chat_completion(self.client,
                     model=self.model,
                     messages=self.conversation,
                     tools=self._get_tools_description(),
@@ -918,7 +870,7 @@ Current Memory Context will be provided with each message."""
         
         try:
             # Stream the response
-            stream = self.client.chat.completions.create(
+            stream = chat_completion(self.client,
                 model=self.model,
                 messages=self.conversation,
                 temperature=_reasoning_safe_temperature(self.model, 0.3),

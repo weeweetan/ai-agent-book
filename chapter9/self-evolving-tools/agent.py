@@ -13,6 +13,8 @@
 若对应 Key 缺失但设置了 OPENROUTER_API_KEY，则自动改走 OpenRouter 兜底。
 """
 
+from agentbook.providers import chat_completion
+
 import json
 import os
 
@@ -53,21 +55,9 @@ def _to_openrouter_model(model: str) -> str:
 
 
 def build_client():
-    provider = os.environ.get("LLM_PROVIDER", "openai").lower()
-    key_env, base_url, default_model = _PROVIDERS.get(provider, _PROVIDERS["openai"])
-    model = os.environ.get("LLM_MODEL", default_model)
-    api_key = os.environ.get(key_env)
-    # 统一兜底：provider 自己的 Key 缺失，但有 OPENROUTER_API_KEY 时改走 OpenRouter
-    if not api_key and os.environ.get("OPENROUTER_API_KEY"):
-        client = OpenAI(api_key=os.environ["OPENROUTER_API_KEY"], base_url=OPENROUTER_BASE_URL)
-        return client, _to_openrouter_model(model)
-    if not api_key:
-        raise RuntimeError(
-            f"missing {key_env} in environment (provider={provider})；"
-            f"也未设置 OPENROUTER_API_KEY（OpenRouter 可作为统一兜底）。"
-        )
-    client = OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
-    return client, model
+    from agentbook.providers import resolve_example_backend
+    backend = resolve_example_backend(default="openai")
+    return OpenAI(api_key=backend.api_key, base_url=backend.base_url), backend.model
 
 
 SYSTEM_PROMPT = """你是一个「自我进化」智能体（Alita 式）。你只有五个基础工具：
@@ -313,7 +303,7 @@ class SelfEvolvingAgent:
         self._log(f"\n{'='*70}\n[任务] {task}\n{'='*70}")
 
         for step in range(max_steps):
-            resp = self.client.chat.completions.create(
+            resp = chat_completion(self.client,
                 model=self.model, messages=messages,
                 tools=self._tools(), tool_choice="auto", temperature=0,
             )

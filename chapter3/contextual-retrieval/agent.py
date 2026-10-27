@@ -1,5 +1,7 @@
 """Agentic RAG System with ReAct Pattern"""
 
+from agentbook.providers import chat_completion
+
 import json
 import logging
 from typing import List, Dict, Any, Optional, Generator
@@ -199,7 +201,7 @@ Remember: Your credibility depends on providing accurate, well-cited information
             
             try:
                 # Call LLM with tools
-                response = self.client.chat.completions.create(
+                response = chat_completion(self.client,
                     model=self.model,
                     messages=messages,
                     tools=self.tools,
@@ -352,7 +354,7 @@ Please answer the question based only on the provided context. Include citations
             ]
             
             if stream:
-                response_stream = self.client.chat.completions.create(
+                response_stream = chat_completion(self.client,
                     model=self.model,
                     messages=messages,
                     temperature=_reasoning_safe_temperature(self.model, self.config.llm.temperature),
@@ -367,7 +369,7 @@ Please answer the question based only on the provided context. Include citations
                 
                 return response_generator()
             else:
-                response = self.client.chat.completions.create(
+                response = chat_completion(self.client,
                     model=self.model,
                     messages=messages,
                     temperature=_reasoning_safe_temperature(self.model, self.config.llm.temperature),

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from agentbook.providers import chat_completion, chat_request
+
 import json
 import hashlib
 import os
@@ -69,15 +71,18 @@ class ResolvedBackend:
 
 
 def resolve_client() -> ResolvedBackend:
-    requested = os.getenv("AGENT_CREATOR_PROVIDER", "auto").strip().casefold()
+    requested = (os.getenv("AGENT_CREATOR_PROVIDER") or os.getenv("LLM_PROVIDER", "auto")).strip().casefold()
     aliases = {"kimi": "moonshot", "volcengine": "ark", "doubao": "ark"}
     requested = aliases.get(requested, requested)
-    if requested not in {"auto", "moonshot", "ark", "openai", "openrouter"}:
+    if requested not in {"auto", "moonshot", "ark", "openai", "deepseek", "openrouter"}:
         raise RuntimeError(
             "AGENT_CREATOR_PROVIDER must be auto, moonshot/kimi, ark, openai, or openrouter"
         )
 
     candidates: list[tuple[str, str | None, str | None, str | None]] = [
+        ("deepseek", os.getenv("DEEPSEEK_API_KEY"),
+         os.getenv("DEEPSEEK_BASE_URL") or "https://api.deepseek.com",
+         os.getenv("AGENT_CREATOR_MODEL") or os.getenv("LLM_MODEL") or os.getenv("DEEPSEEK_MODEL") or "deepseek-flash"),
         (
             "moonshot",
             os.getenv("MOONSHOT_API_KEY") or os.getenv("KIMI_API_KEY"),
@@ -245,7 +250,8 @@ class AgentCreator:
             for transport_attempt in range(1, 4):
                 request_started = time.perf_counter()
                 try:
-                    response = self.client.chat.completions.create(**kwargs)
+                    kwargs = chat_request(**kwargs)
+                    response = chat_completion(self.client, **kwargs)
                     break
                 except Exception as exc:
                     message = str(exc).casefold()

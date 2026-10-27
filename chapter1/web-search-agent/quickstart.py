@@ -38,32 +38,12 @@ def print_banner():
 
 
 def check_api_key():
-    """检查 API Key 配置"""
-    api_key = os.getenv("MOONSHOT_API_KEY")
-    if not api_key:
-        # 向后兼容：尝试旧的环境变量名
-        api_key = os.getenv("KIMI_API_KEY")
-    
-    if not api_key:
-        print_colored("\n⚠️  未检测到 API Key", Colors.WARNING)
-        print("\n请按以下步骤配置:")
-        print("1. 访问 https://platform.moonshot.ai/ 获取 API Key")
-        print("2. 设置环境变量:")
-        print("   export MOONSHOT_API_KEY='your-api-key'")
-        print("   (或使用: export KIMI_API_KEY='your-api-key')")
-        print("\n或者直接输入 API Key (输入 'skip' 跳过):")
-        
-        user_input = input("> ").strip()
-        
-        if user_input.lower() == 'skip':
-            return None
-        elif user_input:
-            return user_input
-        else:
-            return None
-    
-    print_colored("✅ API Key 已配置", Colors.GREEN)
-    return api_key
+    from agentbook.providers import resolve_example_backend
+    try:
+        return resolve_example_backend().api_key
+    except ValueError as exc:
+        print_colored(str(exc), Colors.WARNING)
+        return None
 
 
 def demo_search(agent):

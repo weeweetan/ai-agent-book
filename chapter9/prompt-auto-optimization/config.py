@@ -18,6 +18,10 @@
         其它      -> openai/gpt-5.6-luna
 """
 
+from agentbook.providers import chat_completion, chat_request
+
+from agentbook.providers import PROVIDERS, example_model, example_provider, resolve_example_backend
+
 import os
 import time
 from typing import Any
@@ -106,40 +110,19 @@ def _use_openrouter(cfg: dict) -> bool:
 
 
 def get_model() -> str:
-    """允许用 LLM_MODEL 覆盖默认模型；OpenRouter 兜底路径下映射模型名。"""
-    provider = get_provider()
-    if provider not in _PROVIDERS:
-        raise ValueError(f"未知的 LLM_PROVIDER: {provider}")
-    cfg = _PROVIDERS[provider]
-    model = os.getenv("LLM_MODEL") or cfg["default_model"]
-    if _use_openrouter(cfg):
-        return _to_openrouter_model(model)
-    return model
+    return get_backend_metadata()["model"]
 
 
 def get_client() -> OpenAI:
-    provider = get_provider()
-    if provider not in _PROVIDERS:
-        raise ValueError(f"未知的 LLM_PROVIDER: {provider}")
-    cfg = _PROVIDERS[provider]
-    if _use_openrouter(cfg):
-        return OpenAI(api_key=os.getenv("OPENROUTER_API_KEY"), base_url=OPENROUTER_BASE_URL)
-    api_key = os.getenv(cfg["key_env"])
-    if not api_key:
-        raise RuntimeError(
-            f"环境变量 {cfg['key_env']} 未设置，也未设置 OPENROUTER_API_KEY。"
-            f"请参考 env.example 配置其一（OpenRouter 可作为统一兜底）后重试。"
-        )
-    kwargs = {"api_key": api_key}
-    if cfg["base_url"]:
-        kwargs["base_url"] = cfg["base_url"]
-    return OpenAI(**kwargs)
+    backend = resolve_example_backend(default="openai")
+    return OpenAI(api_key=backend.api_key, base_url=backend.base_url)
 
 
 def record_completion(client: OpenAI, *, kind: str, **request: Any):
     """Execute and retain a credential-free raw request/response receipt."""
     started = time.time()
-    response = client.chat.completions.create(**request)
+    request = chat_request(**request)
+    response = chat_completion(client, **request)
     API_TURNS.append({
         "kind": kind,
         "provider": get_provider(),
@@ -160,24 +143,18 @@ def get_api_turns() -> list[dict]:
 
 
 def get_backend_metadata() -> dict[str, Any]:
-    provider = get_provider()
-    cfg = _PROVIDERS[provider]
-    if _use_openrouter(cfg):
-        base_url = OPENROUTER_BASE_URL
-        key_env = "OPENROUTER_API_KEY"
-        routed_provider = "openrouter"
-    else:
-        base_url = cfg["base_url"] or "https://api.openai.com/v1"
-        key_env = cfg["key_env"]
-        routed_provider = provider
-    return {
-        "configured_provider": provider,
-        "routed_provider": routed_provider,
-        "model": get_model(),
-        "endpoint": f"{base_url}/chat/completions",
-        "credential_source_env": key_env,
-        "credential_value_recorded": False,
-    }
+    provider = example_provider(default="openai")
+    spec = PROVIDERS[provider]
+    model, base_url, routed = example_model(provider), spec.resolved_base_url(), provider
+    if spec.api_key() or os.getenv("OPENROUTER_API_KEY"):
+        backend = resolve_example_backend(provider)
+        model, base_url = backend.model, backend.base_url
+        routed = "openrouter" if backend.using_openrouter else backend.provider
+    keys = PROVIDERS[routed].key_vars
+    source = next((key for key in keys if os.getenv(key)), keys[0])
+    return {"configured_provider": provider, "routed_provider": routed,
+            "model": model, "endpoint": base_url.rstrip("/") + "/chat/completions",
+            "credential_source_env": source, "credential_value_recorded": False}
 
 
 def usage_summary() -> dict[str, Any]:

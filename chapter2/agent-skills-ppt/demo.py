@@ -19,6 +19,10 @@ python-pptx 生成真实的 .pptx，并读回校验页数与每页标题。
     python demo.py
 """
 
+from agentbook.providers import chat_completion
+
+from agentbook.providers import example_model, example_provider, PROVIDERS, resolve_example_backend
+
 import argparse
 import json
 import os
@@ -43,7 +47,7 @@ ROOT = Path(__file__).resolve().parent
 SKILLS_DIR = ROOT / "skills"
 PAPER_PATH = ROOT / "papers" / "sample_paper.md"
 OUTPUT_DIR = ROOT / "output"
-MODEL = os.environ.get("OPENAI_MODEL", "gpt-5.6-luna")
+MODEL = example_model(example_provider(default="openai"))
 
 
 def log(msg: str) -> None:
@@ -252,7 +256,7 @@ def chat_with_tools(client, model: str, messages: list, no_reasoning: bool):
     if no_reasoning:
         kwargs["reasoning_effort"] = "none"
     try:
-        return client.chat.completions.create(**kwargs), no_reasoning
+        return chat_completion(client, **kwargs), no_reasoning
     except BadRequestError as exc:
         if no_reasoning or "reasoning_effort" not in str(exc):
             raise
@@ -260,7 +264,7 @@ def chat_with_tools(client, model: str, messages: list, no_reasoning: bool):
             'reasoning_effort="none"。')
         log("       配置 OPENROUTER_API_KEY 可改走 OpenRouter，保留模型的推理能力。")
         kwargs["reasoning_effort"] = "none"
-        return client.chat.completions.create(**kwargs), True
+        return chat_completion(client, **kwargs), True
 
 
 # ---------------------------------------------------------------------------
@@ -272,7 +276,7 @@ def run_agent(paper_path: Path, model: str, out_path: Path,
     # 官方直连（gpt-* 模型名会被映射为 openai/…）。两者皆无则给出清晰错误。
     from agentbook.providers import resolve_backend
 
-    if not os.environ.get("OPENAI_API_KEY") and not os.environ.get("OPENROUTER_API_KEY"):
+    if not PROVIDERS[example_provider(default="openai")].api_key() and not os.environ.get("OPENROUTER_API_KEY"):
         log("错误：未设置 OPENAI_API_KEY，也未设置 OPENROUTER_API_KEY（通用回退）。")
         log("请 export OPENAI_API_KEY=your-openai-api-key 或 export OPENROUTER_API_KEY=your-openrouter-api-key")
         log("（无 key 时可用 --offline 走内置大纲、确定性地复现三层渐进式披露并生成 pptx。）")
@@ -282,7 +286,7 @@ def run_agent(paper_path: Path, model: str, out_path: Path,
     # OPENAI_BASE_URL 覆盖也在其中处理。chosen_by_reader=False 表示 "openai"
     # 是本实验的默认值而非读者的显式选择：gpt-5.x 直连 chat completions 不允许
     # function tools 与推理并存，注册表因此会在有 OpenRouter key 时改道。
-    backend = resolve_backend("openai", model=model, chosen_by_reader=False)
+    backend = resolve_example_backend(model=model, default="openai")
     model = backend.model
     # timeout + 自动重试：单次网络/SSL 抖动不至于让整个 agentic loop 崩溃
     client = OpenAI(

@@ -5,6 +5,8 @@ This evaluator tests the combined system of:
 2. Advanced JSON cards for structured facts
 """
 
+from agentbook.providers import chat_completion
+
 import os
 import json
 import logging
@@ -593,7 +595,7 @@ Provide a JSON evaluation with:
 
 Respond with valid JSON only."""
             
-            response = client.chat.completions.create(
+            response = chat_completion(client,
                 model=model,
                 messages=[
                     {"role": "system", "content": "You are an evaluation judge. Evaluate if the agent's answer correctly addresses the user's question based on the criteria."},

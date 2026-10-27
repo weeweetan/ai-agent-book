@@ -93,6 +93,17 @@ python -m pip install -e ".[ch1]"
 
 运行会调用模型的实验前，请按该实验 README 配置凭据：支持根目录配置的实验可复制 `.env.example` 为 `.env` 并填入至少一个提供商 Key；有些实验要求在自身目录放 `.env` 或直接导出环境变量。只有在实验 README 或 CLI 明确列出 `ollama` 时，才可启动本地 Ollama 并添加 `--provider ollama`。
 
+通用聊天与工具调用示例现在可切换 **Kimi、DeepSeek、OpenAI**。例如使用 DeepSeek：
+
+```bash
+export LLM_PROVIDER=deepseek
+export DEEPSEEK_API_KEY=your-deepseek-key
+# 可选：export LLM_MODEL=deepseek-flash
+python chapter1/learning-from-experience/quick_demo.py
+```
+
+使用 OpenAI 时改为 `LLM_PROVIDER=openai` 并设置 `OPENAI_API_KEY`；无需配置 Kimi 密钥。支持 `DEEPSEEK_BASE_URL`、`OPENAI_BASE_URL` 自定义端点，模型随供应商自动选择，也可用 `LLM_MODEL` 覆盖。已接入示例、搜索工具与多模态边界见 [API 兼容说明](docs/provider-compatibility.md)。
+
 安装后可从仓库根目录运行实验，例如：
 
 ```bash

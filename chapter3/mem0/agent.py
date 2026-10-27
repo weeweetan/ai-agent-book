@@ -1,5 +1,7 @@
 """Mem0-powered agent with Kimi K3 integration for LOCOMO benchmark."""
 
+from agentbook.providers import chat_completion
+
 import json
 import logging
 from typing import Dict, List, Any, Optional, Tuple
@@ -104,7 +106,7 @@ class KimiK3Client:
     def generate(self, messages: List[Dict[str, str]], **kwargs) -> str:
         """Generate response using Kimi K3 model."""
         try:
-            response = self.client.chat.completions.create(
+            response = chat_completion(self.client,
                 model=self.config.kimi.model_name,
                 messages=messages,
                 max_tokens=kwargs.get("max_tokens", self.config.kimi.max_tokens),

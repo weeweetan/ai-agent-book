@@ -3,6 +3,8 @@ Kimi Web Search Agent
 一个基于 Kimi API 的智能搜索 Agent，能够理解用户问题，通过搜索引擎获取信息，并总结出答案。
 """
 
+from agentbook.providers import chat_completion, chat_request
+
 import json
 from typing import List, Dict, Any, Optional
 from openai import APITimeoutError, OpenAI, RateLimitError
@@ -112,8 +114,8 @@ class WebSearchAgent:
     ``moonshot/web-search:latest`` Formula Fiber 执行。
     """
     
-    def __init__(self, api_key: str = None, base_url: str = "https://api.moonshot.cn/v1",
-                 model: str = "kimi-k3", verbose: bool = False):
+    def __init__(self, api_key: str = None, base_url: str = None,
+                 model: str = None, verbose: bool = False, provider: str = None):
         """
         初始化 Agent
 
@@ -123,18 +125,14 @@ class WebSearchAgent:
             model: 使用的模型名称（默认 kimi-k3）
             verbose: 是否实时打印 ReAct 轨迹（思考/行动/观察）
         """
-        # 优先使用传入的 api_key，否则从环境变量获取
-        # Moonshot 为主，OpenRouter 为通用兜底（当 MOONSHOT_API_KEY 缺失时启用）
-        from config import resolve_llm_backend, Config
-        primary_key = api_key or os.environ.get("MOONSHOT_API_KEY") or os.environ.get("KIMI_API_KEY")
-        resolved_key, resolved_base_url, model, self.using_openrouter = \
-            resolve_llm_backend(primary_key, base_url, model)
-        if self.using_openrouter:
-            logger.info(
-                f"MOONSHOT_API_KEY 未设置，改用 OpenRouter 兜底（模型: {model}）。"
-                "注意：Moonshot Formula web_search 工具在 OpenRouter 上不可用，"
-                "此模式下模型将仅凭自身知识作答，不做实时联网搜索。"
-            )
+        from config import Config
+        from agentbook.providers import resolve_example_backend
+        backend = resolve_example_backend(provider, model, api_key, base_url=base_url)
+        resolved_key, resolved_base_url, model, self.using_openrouter = backend
+        self.provider = "openrouter" if backend.using_openrouter else backend.provider
+        self.search_api_key = os.getenv("SERPER_API_KEY", "").strip()
+        if self.provider in {"deepseek", "openai"} and not self.search_api_key:
+            raise ValueError("DeepSeek/OpenAI 搜索示例需要 SERPER_API_KEY（独立搜索工具）")
 
         self.client = OpenAI(
             api_key=resolved_key,
@@ -168,6 +166,13 @@ class WebSearchAgent:
         
     def _get_tools(self) -> List[Dict[str, Any]]:
         """Fetch and cache Kimi's authoritative Formula declaration."""
+        if getattr(self, "provider", "kimi") in {"deepseek", "openai"}:
+            return [{"type": "function", "function": {
+                "name": "web_search", "description": "搜索网页，返回标题、URL 和摘要。",
+                "parameters": {"type": "object", "properties": {
+                    "query": {"type": "string", "description": "搜索关键词"}
+                }, "required": ["query"]}
+            }}]
         if getattr(self, "using_openrouter", False):
             return []
         if self._formula_tools is not None:
@@ -231,6 +236,19 @@ class WebSearchAgent:
 
     def _execute_formula(self, name: str, raw_arguments: str) -> str:
         """Execute one Kimi Formula Fiber exactly as the model requested."""
+        if getattr(self, "provider", "kimi") in {"deepseek", "openai"}:
+            arguments = json.loads(raw_arguments)
+            if name != "web_search" or not isinstance(arguments, dict) or not arguments.get("query"):
+                raise ValueError("web_search requires a non-empty query")
+            response = requests.post(
+                "https://google.serper.dev/search",
+                headers={"X-API-KEY": self.search_api_key, "Content-Type": "application/json"},
+                json={"q": arguments["query"], "num": 5}, timeout=self._request_timeout,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            self.api_turns.append({"kind": "serper_search", "query": arguments["query"], "response": payload})
+            return json.dumps(payload, ensure_ascii=False)
         if self.using_openrouter:
             raise RuntimeError("Kimi Formula tools are unavailable on OpenRouter")
 
@@ -300,7 +318,7 @@ class WebSearchAgent:
         """
         获取系统提示
         """
-        return f"""你是 Kimi，一个智能搜索助手。
+        return f"""你是一个智能搜索助手。
 
 请按照以下步骤处理：
 1. 分析用户问题，识别关键信息需求
@@ -339,7 +357,8 @@ class WebSearchAgent:
             kwargs["tools"] = tools
         started = time.monotonic()
         try:
-            completion = self.client.chat.completions.create(**kwargs)
+            kwargs = chat_request(**kwargs)
+            completion = chat_completion(self.client, **kwargs)
         except Exception as exc:
             self.api_turns.append({
                 "kind": "chat_completion",

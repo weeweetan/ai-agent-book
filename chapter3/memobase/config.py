@@ -32,26 +32,17 @@ def _openrouter_model_id(model) -> str:
     return "openai/gpt-5.6-luna"
 
 
-# Chat model configuration (Kimi by default; DashScope/Bailian aliases supported)
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "kimi").lower()
-LLM_PROVIDER = {"qwen": "dashscope", "bailian": "dashscope"}.get(LLM_PROVIDER, LLM_PROVIDER)
-if LLM_PROVIDER == "dashscope":
-    KIMI_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
-    KIMI_BASE_URL = os.getenv(
-        "DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    )
-    KIMI_MODEL = os.getenv("MODEL_NAME", "qwen3.7-plus")
-else:
-    KIMI_API_KEY = os.getenv("KIMI_API_KEY", "") or os.getenv("MOONSHOT_API_KEY", "")
-    KIMI_BASE_URL = "https://api.moonshot.cn/v1"
-    KIMI_MODEL = os.getenv("MODEL_NAME", "kimi-k3")  # Kimi K3 model identifier
+# Legacy exported names retained for existing agent imports.
+from agentbook.providers import PROVIDERS, example_model, example_provider, resolve_example_backend
 
-# Universal OpenRouter fallback: primary key (KIMI/MOONSHOT) absent but
-# OPENROUTER_API_KEY present -> route the chat LLM through OpenRouter.
-if not KIMI_API_KEY and os.getenv("OPENROUTER_API_KEY"):
-    KIMI_API_KEY = os.getenv("OPENROUTER_API_KEY")
-    KIMI_BASE_URL = "https://openrouter.ai/api/v1"
-    KIMI_MODEL = _openrouter_model_id(KIMI_MODEL)
+LLM_PROVIDER = example_provider()
+_spec = PROVIDERS[LLM_PROVIDER]
+KIMI_API_KEY = _spec.api_key()
+KIMI_BASE_URL = _spec.resolved_base_url()
+KIMI_MODEL = example_model(LLM_PROVIDER)
+if KIMI_API_KEY or os.getenv("OPENROUTER_API_KEY"):
+    _backend = resolve_example_backend(LLM_PROVIDER)
+    KIMI_API_KEY, KIMI_BASE_URL, KIMI_MODEL = _backend.api_key, _backend.base_url, _backend.model
 
 # Model Parameters
 MODEL_TEMPERATURE = 0.7

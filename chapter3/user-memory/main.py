@@ -100,7 +100,7 @@ def interactive_mode(user_id: str, memory_mode: MemoryMode = MemoryMode.NOTES,
     # Determine provider and get API key
     provider = (provider or Config.PROVIDER).lower()
     api_key = Config.get_api_key(provider)
-    if not api_key:
+    if not api_key and not os.getenv("OPENROUTER_API_KEY"):
         print(f"❌ Error: Please set API key for provider '{provider}'")
         if provider in ["kimi", "moonshot"]:
             print("   export MOONSHOT_API_KEY='your-api-key-here'")
@@ -267,7 +267,7 @@ def demo_memory_system(memory_mode: MemoryMode = None, provider: Optional[str] =
     # Determine provider and get API key
     provider = (provider or Config.PROVIDER).lower()
     api_key = Config.get_api_key(provider)
-    if not api_key:
+    if not api_key and not os.getenv("OPENROUTER_API_KEY"):
         print(f"❌ Please set API key for provider '{provider}'")
         if provider in ["dashscope", "qwen", "bailian"]:
             print("   export DASHSCOPE_API_KEY='your-api-key-here'")
@@ -440,7 +440,7 @@ def run_evaluation_mode(user_id: str, memory_mode: MemoryMode, verbose: bool = T
     # Determine provider and get API key
     provider = (provider or Config.PROVIDER).lower()
     api_key = Config.get_api_key(provider)
-    if not api_key:
+    if not api_key and not os.getenv("OPENROUTER_API_KEY"):
         print(f"❌ Error: Please set API key for provider '{provider}'")
         if provider in ["dashscope", "qwen", "bailian"]:
             print("   export DASHSCOPE_API_KEY='your-api-key-here'")
@@ -871,7 +871,7 @@ def main():
     
     parser.add_argument(
         "--provider",
-        choices=["dashscope", "qwen", "bailian", "siliconflow", "doubao", "kimi", "moonshot", "openrouter"],
+        choices=["dashscope", "qwen", "bailian", "siliconflow", "doubao", "kimi", "moonshot", "openrouter", "deepseek", "openai"],
         default=None,
         help="LLM provider (defaults to env PROVIDER or 'kimi')"
     )

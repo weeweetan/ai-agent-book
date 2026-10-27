@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from agentbook.providers import chat_completion, chat_request
+
 import json
 import os
 
@@ -120,7 +122,8 @@ def evaluate_strategy(judge):
             )
             if "kimi-k3" in model:
                 kwargs.update(temperature=1, max_tokens=4096)
-            response = client.chat.completions.create(**kwargs)
+            kwargs = chat_request(**kwargs)
+            response = chat_completion(client, **kwargs)
             content = response.choices[0].message.content or "{}"
             raw_result = json.loads(content)
             # Validation annotates its input. Keep a distinct credential-free raw

@@ -5,13 +5,17 @@ Agent 只负责「生成 SQL 制品」，不亲自搬运数据：
 真正的数据查询由系统（demo.py）用生成的 SQL 在 SQLite 上执行，结果表直接呈现。
 """
 
+from agentbook.providers import chat_completion
+
+from agentbook.providers import example_provider, example_model, resolve_example_backend
+
 import os
 import re
 from datetime import date
 
 from openai import OpenAI
 
-MODEL = os.environ.get("OPENAI_MODEL", "gpt-5.6-luna")
+MODEL = example_model(example_provider(default="openai"))
 
 
 def _make_client_and_model(model: str):
@@ -24,7 +28,7 @@ def _make_client_and_model(model: str):
     """
     from agentbook.providers import resolve_backend
 
-    backend = resolve_backend("openai", model=model, chosen_by_reader=False)
+    backend = resolve_example_backend(model=model, default="openai")
     return OpenAI(api_key=backend.api_key, base_url=backend.base_url), backend.model
 
 
@@ -63,7 +67,7 @@ class SQLAgent:
         # 推理模型（gpt-5 / o 系列等）不接受 temperature=0。
         _reasoning = any(k in (self.model or "").lower()
                          for k in ("gpt-5", "o1", "o3", "o4", "thinking", "reasoner", "kimi-k3"))
-        resp = self.client.chat.completions.create(
+        resp = chat_completion(self.client,
             model=self.model,
             temperature=1 if _reasoning else 0,
             messages=[

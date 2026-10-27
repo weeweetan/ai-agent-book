@@ -52,6 +52,8 @@ from .openrouter import (
 )
 from .registry import PROVIDERS, SUPPORTED_PROVIDERS, canonical_provider
 from .resolution import resolve_backend
+from .examples import example_model, example_provider, resolve_example_backend
+from .chat import chat_completion, chat_request
 
 __all__ = [
     "OPENROUTER_BASE_URL",
@@ -65,4 +67,9 @@ __all__ = [
     "map_model_to_openrouter",
     "resolve_backend",
     "resolve_llm_backend",
+    "example_model",
+    "example_provider",
+    "resolve_example_backend",
+    "chat_completion",
+    "chat_request",
 ]

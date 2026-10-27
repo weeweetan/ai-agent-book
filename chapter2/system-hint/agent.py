@@ -4,6 +4,8 @@ An agent that demonstrates advanced trajectory management with system hints,
 including timestamps, tool call tracking, TODO lists, and detailed error messages.
 """
 
+from agentbook.providers import chat_completion
+
 import codecs
 import json
 import os
@@ -86,7 +88,7 @@ class SystemHintAgent:
     AI Agent with enhanced system hints for better trajectory management
     """
     
-    def __init__(self, api_key: str, provider: str = "kimi", 
+    def __init__(self, api_key: str = None, provider: str = None,
                  model: Optional[str] = None, config: Optional[SystemHintConfig] = None,
                  verbose: bool = True):
         """
@@ -99,36 +101,19 @@ class SystemHintAgent:
             config: System hint configuration
             verbose: If True, log full details
         """
-        self.provider = provider.lower()
+        self.provider = provider
         self.verbose = verbose
         self.config = config or SystemHintConfig()
         
-        # Configure client based on provider
-        if self.provider in {"dashscope", "qwen", "bailian"}:
-            from agentbook.providers import resolve_backend
+        from agentbook.providers import example_provider, is_openrouter_key, resolve_example_backend
+        target = example_provider(provider)
+        if is_openrouter_key(api_key) and target == "kimi":
+            target = "openrouter"
+        backend = resolve_example_backend(target, model=model, api_key=api_key)
+        self.provider = "openrouter" if backend.using_openrouter else backend.provider
+        self.client = OpenAI(api_key=backend.api_key, base_url=backend.base_url)
+        self.model = backend.model
 
-            backend = resolve_backend("dashscope", model=model, api_key=api_key)
-            self.client = OpenAI(api_key=backend.api_key, base_url=backend.base_url)
-            self.model = backend.model
-        elif self.provider == "kimi" or self.provider == "moonshot":
-            # 默认 Moonshot/Kimi 官方端点；若传入 OpenRouter key（sk-or-…）则自动
-            # 回退到 OpenRouter，并把 kimi-* 映射为 moonshotai/kimi-k2。
-            # 端点、key 与模型名映射统一由 agentbook 的 provider 注册表维护；
-            # “这把 key 属于谁”只有调用方知道，因此在此处判定后再交给注册表解析。
-            from agentbook.providers import is_openrouter_key, resolve_backend
-
-            target = "openrouter" if is_openrouter_key(api_key) else "kimi"
-            backend = resolve_backend(
-                target, model=model or "kimi-k3", api_key=api_key
-            )
-            self.client = OpenAI(
-                api_key=backend.api_key,
-                base_url=backend.base_url
-            )
-            self.model = backend.model
-        else:
-            raise ValueError(f"Unsupported provider: {provider}. Use dashscope/qwen/bailian, kimi, or openrouter")
-        
         # Initialize tracking
         self.tool_call_counts: Dict[str, int] = {}
         self.tool_calls: List[ToolCall] = []
@@ -865,7 +850,7 @@ Important: When you have completed all tasks, clearly state "FINAL ANSWER:" foll
                 self.last_llm_messages = messages_to_send
                 
                 # Call the model
-                response = self.client.chat.completions.create(
+                response = chat_completion(self.client,
                     model=self.model,
                     messages=messages_to_send,
                     tools=self._get_tools_description(),

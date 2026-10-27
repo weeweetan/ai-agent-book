@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from agentbook.providers import chat_completion
+
 import asyncio
 import json
 import os
@@ -30,29 +32,9 @@ async def _extract_value(field: FieldSpec, utterance: str) -> str:
     """Use the Phone Agent's LLM to turn a natural spoken answer into one value."""
     from openai import AsyncOpenAI
 
-    clients = []
-    if os.getenv("ARK_API_KEY"):
-        clients.append((AsyncOpenAI(
-            api_key=os.environ["ARK_API_KEY"],
-            base_url="https://ark.cn-beijing.volces.com/api/v3",
-        ), os.getenv("ARK_MODEL", "doubao-seed-1-6-250615"), "Volcengine ARK"))
-    if os.getenv("MOONSHOT_API_KEY"):
-        clients.append((AsyncOpenAI(
-            api_key=os.environ["MOONSHOT_API_KEY"],
-            base_url="https://api.moonshot.cn/v1",
-        ), os.getenv("MOONSHOT_MODEL", "kimi-k3"), "Moonshot"))
-    if os.getenv("OPENAI_API_KEY"):
-        clients.append((AsyncOpenAI(
-            api_key=os.environ["OPENAI_API_KEY"],
-            base_url=os.getenv("OPENAI_BASE_URL") or None,
-        ), os.getenv("OPENAI_MODEL", "gpt-4.1-mini"), "OpenAI"))
-    if os.getenv("OPENROUTER_API_KEY"):
-        client = AsyncOpenAI(
-            api_key=os.environ["OPENROUTER_API_KEY"],
-            base_url="https://openrouter.ai/api/v1",
-        )
-        raw_model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
-        clients.append((client, raw_model if "/" in raw_model else f"openai/{raw_model}", "OpenRouter"))
+    # Decision and extraction must use the same selected text backend.
+    from decision import _clients_and_models
+    clients = _clients_and_models()
     if not clients:
         raise RuntimeError("Phone Agent 的语义抽取需要任一已支持文本模型 API Key")
 
@@ -90,7 +72,7 @@ async def _extract_value(field: FieldSpec, utterance: str) -> str:
             if "kimi-k3" in model:
                 model_kwargs["temperature"] = 1
                 model_kwargs["max_tokens"] = 2048
-            response = await client.chat.completions.create(model=model, **model_kwargs)
+            response = await chat_completion(client,model=model, **model_kwargs)
             if not (response.choices[0].message.content or "").strip():
                 raise ValueError("模型返回空 content")
             break

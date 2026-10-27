@@ -3,6 +3,8 @@
 Interactive demo to play the game manually or watch agents play.
 """
 
+from agentbook.providers import PROVIDERS, example_provider, example_model
+
 import os
 import sys
 from pathlib import Path
@@ -124,7 +126,7 @@ def watch_llm_agent():
     
     # Check API key
     provider = os.getenv("LLM_PROVIDER", "moonshot").lower()
-    api_key = os.getenv("DASHSCOPE_API_KEY") if provider in {"dashscope", "qwen", "bailian"} else os.getenv("MOONSHOT_API_KEY")
+    api_key = PROVIDERS[example_provider(provider)].api_key()
     if not api_key and not os.getenv("OPENROUTER_API_KEY"):
         print(f"\nError: API key for provider '{provider}' not set.")
         print("Please set your Kimi API key:")

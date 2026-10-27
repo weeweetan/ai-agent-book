@@ -3,6 +3,8 @@
 Quick start script to test the context compression experiment
 """
 
+from agentbook.providers import PROVIDERS, example_provider
+
 import os
 import sys
 from dotenv import load_dotenv
@@ -13,7 +15,7 @@ load_dotenv()
 def check_environment():
     """Check if environment is properly configured"""
     provider = os.getenv("LLM_PROVIDER", "kimi").lower()
-    provider_key = os.getenv("DASHSCOPE_API_KEY") if provider in {"dashscope", "qwen", "bailian"} else os.getenv("MOONSHOT_API_KEY")
+    provider_key = PROVIDERS[example_provider(provider)].api_key() or os.getenv("OPENROUTER_API_KEY")
     serper_key = os.getenv("SERPER_API_KEY")
     
     print("🔍 Checking environment configuration...")

@@ -1,5 +1,7 @@
 """Configuration for Agentic RAG System"""
 
+from agentbook.providers import PROVIDERS, canonical_provider, resolve_example_backend
+
 import os
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
@@ -107,7 +109,7 @@ class LLMConfig:
             "base_url": "https://api.together.xyz"
         },
         "deepseek": {
-            "model": "deepseek-reasoner",
+            "model": "deepseek-flash",
             "base_url": "https://api.deepseek.com/v1"
         }
     }
@@ -131,49 +133,19 @@ class LLMConfig:
         }
         return os.getenv(env_mappings.get(provider.lower(), ""))
     
-    def get_client_config(self) -> Dict[str, Any]:
-        """Get OpenAI client configuration"""
-        provider_lower = self.provider.lower()
-        provider_lower = {"qwen": "dashscope", "bailian": "dashscope"}.get(
-            provider_lower, provider_lower
-        )
-        defaults = self.PROVIDER_DEFAULTS.get(provider_lower, {})
-        
-        # Get API key
-        api_key = self.api_key or self.get_api_key(provider_lower)
-
-        # Universal OpenRouter fallback: primary provider key absent but
-        # OPENROUTER_API_KEY present -> route through OpenRouter. Additionally,
-        # gpt-5.x (incl. gpt-5.6*) needs OpenAI org-verification on the direct
-        # API, so prefer OpenRouter for those ids whenever an OR key is present.
-        model_name = self.model or defaults.get("model")
-        openrouter_key = os.getenv("OPENROUTER_API_KEY")
-        prefer_openrouter = bool(openrouter_key) and str(model_name or "").lower().startswith("gpt-5")
-        if (not api_key or prefer_openrouter) and provider_lower != "openrouter" and openrouter_key:
-            model = _openrouter_model_id(model_name)
-            return {
-                "api_key": openrouter_key,
-                "base_url": "https://openrouter.ai/api/v1",
-            }, model
-
-        if not api_key:
-            raise ValueError(
-                f"API key required for provider '{provider_lower}'. Set the "
-                f"provider's key (e.g. MOONSHOT_API_KEY / OPENAI_API_KEY) or "
-                f"OPENROUTER_API_KEY to use the OpenRouter fallback."
-            )
-
-        # Build config
-        config = {
-            "api_key": api_key,
-            "model": self.model or defaults.get("model")
-        }
-
-        # Add base_url if not OpenAI
-        if "base_url" in defaults:
-            config["base_url"] = defaults["base_url"]
-
-        return config, config.pop("model")
+    def get_client_config(self) -> tuple[Dict[str, Any], str]:
+        provider = canonical_provider(self.provider)
+        if provider in PROVIDERS:
+            backend = resolve_example_backend(provider, self.model, self.api_key)
+            return {"api_key": backend.api_key, "base_url": backend.base_url}, backend.model
+        # Retain the experiment's Groq / Together support.
+        defaults = self.PROVIDER_DEFAULTS.get(provider)
+        if defaults is None:
+            raise ValueError(f"Unsupported provider: {provider}")
+        key = self.api_key or os.getenv(f"{provider.upper()}_API_KEY")
+        if not key:
+            raise ValueError(f"Set {provider.upper()}_API_KEY")
+        return {"api_key": key, "base_url": defaults["base_url"]}, self.model or defaults["model"]
 
 
 @dataclass

@@ -4,6 +4,8 @@ An agent that responds to events from various sources while maintaining
 all the system hint features from the original implementation.
 """
 
+from agentbook.providers import chat_completion
+
 import json
 import os
 import sys
@@ -56,24 +58,13 @@ _PROVIDER_KEY_ENV = {
 
 
 def resolve_provider_and_key(provider: Optional[str] = None):
-    """Resolve (provider, api_key) applying a universal OpenRouter fallback.
-
-    Preferred provider (default from LLM_PROVIDER, else 'kimi') is used as today
-    when its own key is present. Otherwise, if OPENROUTER_API_KEY is set, fall
-    back to the already-supported 'openrouter' provider so the agent still runs.
-    Returns (provider, None) when no usable key is found, leaving the caller to
-    emit its own error.
-    """
-    provider = (provider or os.getenv("LLM_PROVIDER", "kimi")).lower()
-    provider = {"qwen": "dashscope", "bailian": "dashscope"}.get(provider, provider)
-    key_env = _PROVIDER_KEY_ENV.get(provider)
-    api_key = os.getenv(key_env) if key_env else None
-    if api_key:
-        return provider, api_key
-    or_key = os.getenv("OPENROUTER_API_KEY")
-    if or_key:
-        return "openrouter", or_key
-    return provider, None
+    from agentbook.providers import example_provider, resolve_example_backend
+    selected = example_provider(provider)
+    try:
+        backend = resolve_example_backend(selected)
+        return ("openrouter" if backend.using_openrouter else selected), backend.api_key
+    except ValueError:
+        return selected, None
 
 
 # Configure logging
@@ -259,7 +250,7 @@ class EventTriggeredAgent:
     Responds to events while maintaining all system hint capabilities
     """
     
-    def __init__(self, api_key: str, provider: str = "kimi", 
+    def __init__(self, api_key: str = None, provider: str = None,
                  model: Optional[str] = None, config: Optional[SystemHintConfig] = None,
                  verbose: bool = True):
         """
@@ -272,52 +263,20 @@ class EventTriggeredAgent:
             config: System hint configuration
             verbose: If True, log full details
         """
-        self.provider = provider.lower()
+        from agentbook.providers import example_provider
+        self.provider = example_provider(provider)
         self.provider = {"qwen": "dashscope", "bailian": "dashscope"}.get(
             self.provider, self.provider
         )
         self.verbose = verbose
         self.config = config or SystemHintConfig()
         
-        # Configure client based on provider (matching conversational_agent.py)
-        if self.provider == "dashscope":
-            self.client = OpenAI(
-                api_key=api_key,
-                base_url=os.getenv(
-                    "DASHSCOPE_BASE_URL",
-                    "https://dashscope.aliyuncs.com/compatible-mode/v1",
-                )
-            )
-            self.model = model or "qwen3.7-plus"
-        elif self.provider == "siliconflow":
-            self.client = OpenAI(
-                api_key=api_key,
-                base_url="https://api.siliconflow.cn/v1"
-            )
-            self.model = model or "Qwen/Qwen3-235B-A22B-Thinking-2507"
-        elif self.provider == "doubao":
-            self.client = OpenAI(
-                api_key=api_key,
-                base_url="https://ark.cn-beijing.volces.com/api/v3"
-            )
-            self.model = model or "doubao-seed-1-6-thinking-250715"
-        elif self.provider == "kimi" or self.provider == "moonshot":
-            self.client = OpenAI(
-                api_key=api_key,
-                base_url="https://api.moonshot.cn/v1"
-            )
-            self.model = model or "kimi-k3"
-        elif self.provider == "openrouter":
-            self.client = OpenAI(
-                api_key=api_key,
-                base_url="https://openrouter.ai/api/v1"
-            )
-            # Default to Gemini 3.5 Flash, but allow any of the supported models
-            self.model = model or "google/gemini-3.5-flash"
-            # Supported models: google/gemini-3.5-flash, openai/gpt-5.6-luna, anthropic/claude-sonnet-4.6
-        else:
-            raise ValueError(f"Unsupported provider: {provider}. Use 'dashscope'/'qwen'/'bailian', 'siliconflow', 'doubao', 'kimi', 'moonshot', or 'openrouter'")
-        
+        from agentbook.providers import resolve_example_backend
+        backend = resolve_example_backend(self.provider, model, api_key)
+        self.provider = "openrouter" if backend.using_openrouter else backend.provider
+        self.model = backend.model
+        self.client = OpenAI(api_key=backend.api_key, base_url=backend.base_url)
+
         # Initialize tracking
         self.tool_call_counts: Dict[str, int] = {}
         self.tool_calls: List[ToolCall] = []
@@ -1108,7 +1067,7 @@ Important: When you have completed all tasks, clearly state "FINAL ANSWER:" foll
                 if system_hint:
                     messages_to_send.append({"role": "user", "content": system_hint})
                 
-                response = self.client.chat.completions.create(
+                response = chat_completion(self.client,
                     model=self.model,
                     messages=messages_to_send,
                     tools=self._get_tools_description(),

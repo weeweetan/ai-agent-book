@@ -284,7 +284,7 @@ def _build_parser():
         help="覆盖 LLM 模型名（等价于设置环境变量 LLM_MODEL，如 gpt-5.6-luna）。",
     )
     parser.add_argument(
-        "--provider", choices=("openai", "moonshot", "ark", "openrouter"), default=None,
+        "--provider", choices=("openai", "deepseek", "kimi", "moonshot", "ark", "openrouter"), default=None,
         help="覆盖 LLM 提供商（等价于设置环境变量 LLM_PROVIDER，默认 openai）。",
     )
     parser.add_argument(

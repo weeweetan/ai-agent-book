@@ -12,6 +12,8 @@
 更多用法见  python demo.py --help
 """
 
+from agentbook.providers import chat_completion, chat_request
+
 import os
 import re
 import sys
@@ -38,6 +40,7 @@ from sandbox import run_python
 # 每个 provider 的默认模型。端点、key 与模型名映射由 agentbook 的 provider
 # 注册表统一维护，实验这里只保留「默认用哪个模型」这一个自己的决定。
 DEFAULT_MODELS = {
+    "deepseek": "deepseek-flash",
     "openai": "gpt-5.6-luna",
     "openrouter": "openai/gpt-5.6-luna",
     "moonshot": "kimi-k3",
@@ -46,6 +49,7 @@ DEFAULT_MODELS = {
 
 # auto 模式下按此顺序挑第一个配了 key 的 provider。
 AUTO_KEY_VARS = {
+    "deepseek": "DEEPSEEK_API_KEY",
     "openai": "OPENAI_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
     "moonshot": "MOONSHOT_API_KEY",
@@ -63,28 +67,25 @@ def build_client_and_model(model_override=None, provider="auto"):
     # 延迟导入：离线自检（--selfcheck）不需要 openai，也不需要 API key。
     from openai import OpenAI
 
-    from agentbook.providers import resolve_backend
+    from agentbook.providers import resolve_example_backend
 
     requested_model = model_override or os.getenv("MODEL")
-    # --provider 是读者的显式选择；auto 只是本实验的默认策略，所以后者允许注册表
-    # 把 gpt-5.x 改道到 OpenRouter（直连需组织实名认证，且不允许 function tools
-    # 与推理并存——本实验的 code 模式正是靠 function calling 跑沙箱）。
-    chosen_by_reader = provider != "auto"
+    # CLI selection wins; auto honors the shared environment before key discovery.
+    if provider == "auto" and os.getenv("LLM_PROVIDER"):
+        provider = os.environ["LLM_PROVIDER"]
     if provider == "auto":
         provider = next(
-            (name for name in ("openai", "openrouter", "moonshot", "ark")
+            (name for name in ("openai", "deepseek", "openrouter", "moonshot", "ark")
              if os.getenv(AUTO_KEY_VARS[name])),
             "openai",
         )
+    if provider == "kimi":
+        provider = "moonshot"
     if provider not in DEFAULT_MODELS:
         raise ValueError(f"unsupported provider: {provider}")
 
     try:
-        backend = resolve_backend(
-            provider,
-            model=requested_model or DEFAULT_MODELS[provider],
-            chosen_by_reader=chosen_by_reader,
-        )
+        backend = resolve_example_backend(provider, model=requested_model, default_model=DEFAULT_MODELS[provider])
     except ValueError as exc:
         raise SystemExit(
             "未找到 API key，请设置 OPENAI_API_KEY（或 MOONSHOT_API_KEY / ARK_API_KEY / OPENROUTER_API_KEY）。\n"
@@ -190,7 +191,8 @@ def solve(client, model, question, use_code, max_turns=8, verbose=False):
             # model may ignore. Later turns may choose whether another call is
             # useful after seeing the first execution result.
             kwargs["tool_choice"] = "required" if not codes else "auto"
-        resp = client.chat.completions.create(**kwargs)
+        kwargs = chat_request(**kwargs)
+        resp = chat_completion(client, **kwargs)
         msg = resp.choices[0].message
         usage = getattr(resp, "usage", None)
         provider_receipts.append({
@@ -268,7 +270,7 @@ def solve(client, model, question, use_code, max_turns=8, verbose=False):
     _rs = ({"temperature": 1, "max_tokens": 4096}
            if any(k in (model or "").lower() for k in ("kimi-k3", "kimi-k2.", "gpt-5", "o1", "o3", "o4", "thinking", "reasoner"))
            else {"temperature": 0})
-    resp = client.chat.completions.create(
+    resp = chat_completion(client,
         model=model, messages=messages, **_rs
     )
     content = resp.choices[0].message.content or ""
@@ -377,7 +379,7 @@ def parse_args(argv=None):
     )
     parser.add_argument(
         "--provider",
-        choices=["auto", "openai", "openrouter", "moonshot", "ark"],
+        choices=["auto", "openai", "deepseek", "openrouter", "moonshot", "ark"],
         default="auto",
         help="explicit API provider; recorded in the saved evidence",
     )

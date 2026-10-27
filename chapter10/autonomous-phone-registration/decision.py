@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from agentbook.providers import chat_completion
+
 import json
 import os
 import time
@@ -17,6 +19,11 @@ def _clients_and_models():
 
     model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
     candidates = []
+    if os.getenv("LLM_PROVIDER") or os.getenv("DEEPSEEK_API_KEY"):
+        from agentbook.providers import resolve_example_backend
+        backend = resolve_example_backend(default="deepseek")
+        return [(AsyncOpenAI(api_key=backend.api_key, base_url=backend.base_url),
+                 backend.model, "openrouter" if backend.using_openrouter else backend.provider)]
     if os.getenv("ARK_API_KEY"):
         candidates.append(
             (
@@ -168,7 +175,7 @@ async def decide_orchestration(
     for client, model, provider in clients:
         request_started = time.monotonic()
         try:
-            response = await client.chat.completions.create(model=model, **kwargs)
+            response = await chat_completion(client,model=model, **kwargs)
             provider_latency_seconds = round(time.monotonic() - request_started, 6)
             break
         except Exception as exc:  # noqa: BLE001 - try the next configured provider

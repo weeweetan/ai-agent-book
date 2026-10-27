@@ -3,6 +3,8 @@ Memobase Agent Implementation with Kimi K3 Model
 Advanced memory management for LOCOMO benchmark
 """
 
+from agentbook.providers import chat_completion
+
 import json
 import logging
 import time
@@ -415,7 +417,7 @@ Always think step-by-step and use your memory system strategically."""
         
         try:
             # Call Kimi K3 model
-            response = self.client.chat.completions.create(
+            response = chat_completion(self.client,
                 model=self.model,
                 messages=messages,
                 temperature=_reasoning_safe_temperature(self.model, MODEL_TEMPERATURE),

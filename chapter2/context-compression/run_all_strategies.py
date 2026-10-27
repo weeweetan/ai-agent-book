@@ -118,7 +118,7 @@ class StrategyRunner:
             # Create agent with the strategy
             self.logger.info("Creating agent...")
             agent = ResearchAgent(
-                api_key=Config.MOONSHOT_API_KEY,
+                api_key=Config.resolve_llm()[0],
                 compression_strategy=strategy,
                 verbose=False,
                 enable_streaming=True  # Enable streaming to see compressions
