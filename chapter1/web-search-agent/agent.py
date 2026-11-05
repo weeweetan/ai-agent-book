@@ -1,7 +1,4 @@
-"""
-Kimi Web Search Agent
-一个基于 Kimi API 的智能搜索 Agent，能够理解用户问题，通过搜索引擎获取信息，并总结出答案。
-"""
+"""Search with Kimi Formula, DeepSeek Search, or OpenAI Responses web_search."""
 
 # Locate the shared package when this example is run from a source checkout.
 import sys as _sys
@@ -14,7 +11,6 @@ from typing import List, Dict, Any, Optional
 from openai import APITimeoutError, OpenAI, RateLimitError
 from openai.types.chat.chat_completion import Choice
 import logging
-import os
 import requests
 import time
 
@@ -68,7 +64,7 @@ MAX_ITERATIONS_MESSAGE = "抱歉，搜索过程超过了最大迭代次数，请
 NO_INFO_MESSAGE = "抱歉，我无法获取足够的信息来回答您的问题。"
 
 
-def _error_hint(exc: Exception, timeout: Optional[float] = None) -> str:
+def _error_hint(exc: Exception, timeout: Optional[float] = None, provider: str = "kimi") -> str:
     """给 provider 故障补一句可操作的提示。
 
     交互模式下最常见的两种失败是速率限制和请求超时，而且两者常常连在一起：
@@ -79,6 +75,8 @@ def _error_hint(exc: Exception, timeout: Optional[float] = None) -> str:
         return "（触发了服务商的速率限制，请降低请求频率或稍后重试）"
     if isinstance(exc, APITimeoutError):
         budget = f"超过 {timeout:.0f} 秒未返回" if timeout else "超时未返回"
+        if provider != "kimi":
+            return f"（请求{budget}，可调大 SEARCH_TIMEOUT，并检查网络和服务商的速率限制）"
         return (
             f"（请求{budget}。kimi-k3 以 reasoning_effort=max 运行，"
             "单次调用可能需要一到数分钟；若持续超时，可调大环境变量 "
@@ -96,12 +94,45 @@ def is_failure_answer(answer: str) -> bool:
     )
 
 
+def _render_citations(part: Dict[str, Any]) -> str:
+    """Render Responses URL annotations as links without losing answer text."""
+    text = part.get("text", "")
+    insertions = []
+    extra_links = []
+    for annotation in part.get("annotations", []):
+        if annotation.get("type") != "url_citation":
+            continue
+        url = annotation.get("url", "")
+        if not url.startswith(("https://", "http://")):
+            continue
+        title = (annotation.get("title") or url).replace("[", "\\[").replace("]", "\\]")
+        link = f"[{title}]({url})"
+        start, end = annotation.get("start_index"), annotation.get("end_index")
+        if isinstance(start, int) and isinstance(end, int) and 0 <= start <= end <= len(text):
+            # Some responses expose an opaque citation marker; replace only
+            # that marker. When the range covers prose, retain the prose.
+            cited = text[start:end]
+            if cited.startswith("cite") and cited.endswith(""):
+                insertions.append((start, end, link))
+            else:
+                insertions.append((end, end, f" {link}"))
+        elif link not in extra_links:
+            extra_links.append(link)
+    for start, end, link in sorted(insertions, reverse=True):
+        text = text[:start] + link + text[end:]
+    if extra_links:
+        text += "\n\n" + " · ".join(extra_links)
+    return text
+
+
 class WebSearchAgent:
     """
-    Web Search Agent - 使用 Kimi Formula API 官方搜索工具。
+    Web Search Agent - 使用所选供应商的官方搜索工具。
 
     kimi-k3 的当前官方路径是标准 ``function`` tool 声明加
     ``moonshot/web-search:latest`` Formula Fiber 执行。
+    DeepSeek 通过 function 调用同一密钥的 Search API；OpenAI 通过
+    Responses API 在服务端执行 web_search。
     """
     
     def __init__(self, api_key: str = None, base_url: str = None,
@@ -110,7 +141,7 @@ class WebSearchAgent:
         初始化 Agent
 
         Args:
-            api_key: Kimi API key (如果不提供，从环境变量获取)
+            api_key: 所选供应商 API key (如果不提供，从环境变量获取)
             base_url: API 基础 URL
             model: 使用的模型名称（默认 kimi-k3）
             verbose: 是否实时打印 ReAct 轨迹（思考/行动/观察）
@@ -119,10 +150,6 @@ class WebSearchAgent:
         backend = resolve_example_backend(provider, model, api_key, base_url=base_url)
         resolved_key, resolved_base_url, model, self.using_openrouter = backend
         self.provider = "openrouter" if backend.using_openrouter else backend.provider
-        self.search_api_key = os.getenv("SERPER_API_KEY", "").strip()
-        if self.provider in {"deepseek", "openai"} and not self.search_api_key:
-            raise ValueError("DeepSeek/OpenAI 搜索示例需要 SERPER_API_KEY（独立搜索工具）")
-
         self.client = OpenAI(
             api_key=resolved_key,
             base_url=resolved_base_url,
@@ -145,7 +172,7 @@ class WebSearchAgent:
         self._request_timeout = Config.SEARCH_TIMEOUT
         self.temperature = 0.6
         # 推理模型（Kimi K3）需要充足的输出预算，避免最终答案被截断
-        self.max_tokens = 32768
+        self.max_tokens = 16384 if self.provider == "openai" else 32768
 
     def _emit(self, step: Dict[str, Any]):
         """记录一条 ReAct 轨迹步骤，并在 verbose 模式下实时打印。"""
@@ -154,12 +181,15 @@ class WebSearchAgent:
             print(format_trace_step(step))
         
     def _get_tools(self) -> List[Dict[str, Any]]:
-        """Fetch and cache Kimi's authoritative Formula declaration."""
-        if getattr(self, "provider", "kimi") in {"deepseek", "openai"}:
+        """Declare DeepSeek's client tool, or fetch Kimi's Formula declaration."""
+        if getattr(self, "provider", "kimi") == "openai":
+            return [{"type": "web_search"}]
+        if getattr(self, "provider", "kimi") == "deepseek":
             return [{"type": "function", "function": {
-                "name": "web_search", "description": "搜索网页，返回标题、URL 和摘要。",
+                "name": "web_search", "description": "通过 DeepSeek 官方 Search API 搜索网页，返回标题、URL 和正文摘要。",
                 "parameters": {"type": "object", "properties": {
-                    "query": {"type": "string", "description": "搜索关键词"}
+                    "query": {"type": "string", "description": "搜索关键词（1–128 字符）",
+                              "minLength": 1, "maxLength": 128}
                 }, "required": ["query"]}
             }}]
         if getattr(self, "using_openrouter", False):
@@ -224,20 +254,9 @@ class WebSearchAgent:
         return tools
 
     def _execute_formula(self, name: str, raw_arguments: str) -> str:
-        """Execute one Kimi Formula Fiber exactly as the model requested."""
-        if getattr(self, "provider", "kimi") in {"deepseek", "openai"}:
-            arguments = json.loads(raw_arguments)
-            if name != "web_search" or not isinstance(arguments, dict) or not arguments.get("query"):
-                raise ValueError("web_search requires a non-empty query")
-            response = requests.post(
-                "https://google.serper.dev/search",
-                headers={"X-API-KEY": self.search_api_key, "Content-Type": "application/json"},
-                json={"q": arguments["query"], "num": 5}, timeout=self._request_timeout,
-            )
-            response.raise_for_status()
-            payload = response.json()
-            self.api_turns.append({"kind": "serper_search", "query": arguments["query"], "response": payload})
-            return json.dumps(payload, ensure_ascii=False)
+        """Execute a client-side search tool (DeepSeek Search or Kimi Fiber)."""
+        if getattr(self, "provider", "kimi") == "deepseek":
+            return self._search_deepseek(name, raw_arguments)
         if self.using_openrouter:
             raise RuntimeError("Kimi Formula tools are unavailable on OpenRouter")
 
@@ -302,6 +321,123 @@ class WebSearchAgent:
         if isinstance(result, str):
             return result
         return json.dumps(result, ensure_ascii=False)
+
+    def _search_deepseek(self, name: str, raw_arguments: str) -> str:
+        """Use the model's own DeepSeek key for the official Search API."""
+        arguments = json.loads(raw_arguments)
+        query = arguments.get("query") if isinstance(arguments, dict) else None
+        if name != "web_search" or not isinstance(query, str) or not query.strip() or len(query) > 128:
+            raise ValueError("DeepSeek web_search query 必须是 1–128 字符的非空字符串")
+        base = self.base_url.rstrip("/")
+        if not base.endswith("/v1"):
+            base += "/v1"
+        url = f"{base}/tools/search"
+        body = {"query": query, "count": 5, "need_content": True}
+        receipt = {
+            "kind": "deepseek_search",
+            "request": {"method": "POST", "url": url, "body": body},
+        }
+        started = time.monotonic()
+        response = None
+        try:
+            response = requests.post(
+                url,
+                headers={"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"},
+                json=body,
+                timeout=self._request_timeout,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, dict) or not isinstance(payload.get("results"), list):
+                raise RuntimeError("DeepSeek Search response has no results array")
+            receipt["response"] = payload
+            return json.dumps(payload, ensure_ascii=False)
+        except Exception as exc:
+            receipt["error"] = {"class": type(exc).__name__, "message": str(exc)}
+            raise
+        finally:
+            receipt["http_status"] = getattr(response, "status_code", None)
+            receipt["elapsed_seconds"] = round(time.monotonic() - started, 6)
+            self.api_turns.append(receipt)
+
+    def _search_openai(self, user_question: str, max_iterations: int) -> str:
+        """Let Responses execute hosted search, then expose its real receipts."""
+        if max_iterations <= 0:
+            return MAX_ITERATIONS_MESSAGE
+        body = {
+            "model": self.model,
+            "instructions": self._get_system_prompt(),
+            "input": user_question,
+            "tools": self._get_tools(),
+            "tool_choice": "required",
+            "max_output_tokens": self.max_tokens,
+            "max_tool_calls": max_iterations,
+            "include": ["web_search_call.action.sources"],
+            "store": False,
+        }
+        sampling = chat_request(model=self.model, temperature=self.temperature)
+        if "temperature" in sampling:
+            body["temperature"] = sampling["temperature"]
+        # SDK 1.68 supports Responses but predates max_tool_calls. extra_body
+        # sends the current wire parameter without raising that SDK's floor.
+        kwargs = {key: value for key, value in body.items() if key != "max_tool_calls"}
+        receipt = {"kind": "responses", "request": body}
+        started = time.monotonic()
+        try:
+            response = self.client.responses.with_raw_response.create(
+                **kwargs, extra_body={"max_tool_calls": max_iterations}
+            )
+            # Keep the exact JSON, including current tool fields unknown to
+            # older SDK response unions, without lossy model reserialization.
+            payload = response.http_response.json()
+            receipt["response"] = payload
+        except Exception as exc:
+            receipt["error"] = {"class": type(exc).__name__, "message": str(exc)}
+            raise
+        finally:
+            receipt["elapsed_seconds"] = round(time.monotonic() - started, 6)
+            self.api_turns.append(receipt)
+
+        answers = []
+        completed_searches = 0
+        iteration = 0
+        for item in payload.get("output", []):
+            if item.get("type") == "web_search_call":
+                iteration += 1
+                self._emit({"iteration": iteration, "type": "action", "tool": "web_search",
+                            "args": item.get("action") or {}})
+                self._emit({"iteration": iteration, "type": "observation", "tool": "web_search",
+                            "content": json.dumps(item, ensure_ascii=False)})
+                if item.get("status") == "completed":
+                    completed_searches += 1
+            elif item.get("type") == "reasoning":
+                for summary in item.get("summary", []):
+                    if summary.get("text"):
+                        self._emit({"iteration": max(1, iteration), "type": "thought",
+                                    "content": summary["text"]})
+            elif item.get("type") == "message":
+                for part in item.get("content", []):
+                    if part.get("type") == "output_text":
+                        answers.append(_render_citations(part))
+
+        status = payload.get("status")
+        if status not in {"completed", "incomplete"}:
+            error = payload.get("error") or {}
+            raise RuntimeError(f"OpenAI Responses {status}: {error.get('message', '请求未完成')}")
+        if not completed_searches:
+            raise RuntimeError("OpenAI 未返回成功的 web_search_call，无法确认实际执行了联网搜索")
+        answer = "\n".join(answers).strip()
+        if status == "incomplete":
+            reason = (payload.get("incomplete_details") or {}).get("reason")
+            if reason != "max_output_tokens":
+                raise RuntimeError(f"OpenAI Responses 未完成: {reason}")
+            note = "（注意：回答因达到 max_output_tokens 上限被截断，请增大 max_tokens 后重试。）"
+            answer = f"{answer}\n\n{note}" if answer else note
+        if not answer:
+            return NO_INFO_MESSAGE
+        self._emit({"iteration": max(1, iteration), "type": "answer", "content": answer})
+        self.conversation_history.append({"role": "assistant", "content": answer})
+        return answer
     
     def _get_system_prompt(self) -> str:
         """
@@ -319,6 +455,7 @@ class WebSearchAgent:
 - 搜索时使用精准的关键词
 - 优先获取最新、最权威的信息
 - 答案要结构清晰，有理有据
+- 引用搜索结果时给出对应的来源 URL
 """
     
     def _chat(self, messages: List[Dict[str, Any]]) -> Choice:
@@ -393,9 +530,11 @@ class WebSearchAgent:
         self.api_turns = []
         # Each independent question keeps its own real declaration receipt.
         self._formula_tools = None
-        logger.info("开始调用 Kimi 搜索工具...")
+        logger.info("开始调用 %s 搜索工具...", getattr(self, "provider", "kimi"))
 
         try:
+            if getattr(self, "provider", "kimi") == "openai":
+                return self._search_openai(user_question, max_iterations)
             finish_reason = None
             iteration = 0
             
@@ -522,7 +661,7 @@ class WebSearchAgent:
             return NO_INFO_MESSAGE
                 
         except Exception as e:
-            hint = _error_hint(e, getattr(self, "_request_timeout", None))
+            hint = _error_hint(e, getattr(self, "_request_timeout", None), getattr(self, "provider", "kimi"))
             message = f"{SEARCH_ERROR_PREFIX}: {str(e)}{hint}"
             logger.error(message)
             return message

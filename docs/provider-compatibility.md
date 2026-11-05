@@ -63,19 +63,29 @@ python chapter1/learning-from-experience/quick_demo.py
 
 ## 搜索示例
 
-Kimi 路径保留 Moonshot Formula。DeepSeek/OpenAI 的搜索通过相同的 ReAct 循环调用独立 Serper 工具：
+`chapter1/web-search-agent` 使用所选供应商的官方搜索能力，只需该供应商的 API Key，无需 `SERPER_API_KEY`：
+
+| 供应商 | 本例的搜索实现 |
+| --- | --- |
+| Kimi | Moonshot Formula 的 `web_search`，由本地 ReAct 循环执行 Fiber |
+| DeepSeek | 本地 `web_search` function 调用官方 `POST /v1/tools/search`，使用同一 DeepSeek Key；默认 `deepseek-flash` |
+| OpenAI | Responses API 的原生 `web_search`，搜索与作答在服务端完成，返回搜索记录和来源引用 |
 
 ```bash
 export LLM_PROVIDER=deepseek
 export DEEPSEEK_API_KEY=your-deepseek-key
-export SERPER_API_KEY=your-serper-key
 python chapter1/web-search-agent/main.py '搜索 Python 官方文档，解释 asyncio.TaskGroup'
 
 # CLI 也可以显式选择供应商
+export OPENAI_API_KEY=your-openai-key
 python chapter1/web-search-agent/main.py --provider openai '搜索 Python 官方文档'
 ```
 
-没有 `SERPER_API_KEY` 时，DeepSeek/OpenAI 搜索入口会明确报错，不会把模型记忆当成搜索结果。离线轨迹只使用 Python 标准库，可以先运行，再决定是否安装联网依赖：
+DeepSeek 默认继续使用 Flash 和 Chat Completions；这里的 `web_search` 是客户端 function，不是给 Flash 声明会被忽略的 Responses 内置工具。官方 Search API 支持返回网页正文，见 [DeepSeek Search / Fetch](https://api-docs.deepseek.com/guides/search/)。`--base-url` 接受官方根地址或带 `/v1` 的地址；自定义代理也必须转发 `/v1/tools/search`。
+
+OpenAI 使用 `tool_choice="required"`，只有收到成功的 `web_search_call` 才展示搜索答案，并将 URL 引用转换为 Markdown 链接。`--max-steps` 在这条路径上控制服务端工具调用次数；轨迹在服务端响应返回后展示。自定义端点和模型必须支持 Responses 及原生搜索，见 [OpenAI web search](https://developers.openai.com/api/docs/guides/tools-web-search)。
+
+离线轨迹只使用 Python 标准库，可以先运行，再决定是否安装联网依赖：
 
 ```bash
 python chapter1/web-search-agent/main.py --provider offline-demo --output demo.json

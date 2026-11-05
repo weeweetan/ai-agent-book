@@ -26,6 +26,10 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        openai: ["openai==1.68.0", "openai>=1.68.0"]
     defaults:
       run:
         working-directory: chapter1/web-search-agent
@@ -40,7 +44,7 @@ jobs:
           cache-dependency-path: chapter1/web-search-agent/requirements.txt
 
       - name: Install dependencies
-        run: python -m pip install -r requirements.txt
+        run: python -m pip install -r requirements.txt "${{ matrix.openai }}"
 
       - name: Check formatting
         run: python -m black --check tests

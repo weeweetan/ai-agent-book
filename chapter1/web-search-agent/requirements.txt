@@ -1,8 +1,8 @@
-# Kimi Web Search Agent 依赖
+# Web Search Agent 依赖（Kimi / DeepSeek / OpenAI）
 
 # 核心依赖
-openai>=1.68.0  # OpenAI Python 客户端，用于调用 Kimi API
-requests>=2.31.0  # Kimi Formula declarations and Fiber execution
+openai>=1.68.0  # Chat Completions 和 OpenAI Responses 客户端
+requests>=2.31.0  # Kimi Formula 和 DeepSeek Search API
 python-dotenv>=1.0.0  # 环境变量管理
 
 # 可选依赖（用于高级功能）

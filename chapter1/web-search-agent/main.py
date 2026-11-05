@@ -161,11 +161,12 @@ def build_parser() -> argparse.ArgumentParser:
                         help="要提问的问题；省略则进入交互模式")
     parser.add_argument("--provider", choices=["kimi", "deepseek", "openai", "offline-demo"], default=None,
                         help="搜索后端：kimi=调用 Kimi Formula web_search（需 API Key）；"
-                             "deepseek/openai=模型 + Serper 搜索；offline-demo=离线回放")
+                             "deepseek=官方 Search API；openai=Responses web_search；"
+                             "offline-demo=离线回放（联网模式仅需所选供应商的 API Key）")
     parser.add_argument("--model", default=None,
                         help="模型覆盖（默认由供应商和 LLM_MODEL 决定）")
     parser.add_argument("--max-steps", type=int, default=MAX_SEARCH_ITERATIONS,
-                        help=f"最大 ReAct 迭代次数（默认 {MAX_SEARCH_ITERATIONS}）")
+                        help=f"最大 ReAct 迭代次数；OpenAI 为服务端工具调用上限（默认 {MAX_SEARCH_ITERATIONS}）")
     parser.add_argument("--base-url", default=None,
                         help="API 基础 URL 覆盖（默认读取供应商对应配置）")
     parser.add_argument("--api-key", default=None,

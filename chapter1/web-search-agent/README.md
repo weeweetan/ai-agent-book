@@ -1,4 +1,4 @@
-# Kimi Web Search Agent / Kimi 网络搜索 Agent
+# Web Search Agent / 网络搜索 Agent（Kimi、DeepSeek、OpenAI）
 
 回答一个需要新信息的问题时，模型往往不能一步结束：它先决定查什么，读到结果后再决定是否继续查。本实验用一条可见的搜索轨迹，解释“思考、行动、观察”怎样组成 Agent 循环。
 
@@ -12,7 +12,7 @@
 
 ## 理解问题与方法
 
-用户问题进入对话后，模型可以提出工具调用。程序执行工具，把结果作为新的消息交回模型，随后开始下一轮。离线演示使用预先写好的轨迹，让你先看清控制流；真正联网时，搜索结果由 Moonshot 的 Formula 服务返回。
+用户问题进入对话后，模型可以提出工具调用。程序执行工具，把结果作为新的消息交回模型，随后开始下一轮。离线演示使用预先写好的轨迹，让你先看清控制流。Kimi、DeepSeek 的工具往返由程序控制；OpenAI 的原生搜索循环在 Responses 服务端完成。
 
 ### 这个实验做什么
 
@@ -21,7 +21,7 @@
 
 ### 联网时发生了什么
 
-当前代码通过 Moonshot 的 Formula 接口使用 `web_search`。你不需要先读懂全部接口，
+默认 Kimi 路径通过 Moonshot 的 Formula 接口使用 `web_search`。你不需要先读懂全部接口，
 只需跟踪三步：
 
 1. 程序向服务端获取搜索工具的定义，并把定义交给模型。
@@ -31,6 +31,10 @@
 搜索在 Moonshot 服务端执行。遇到错误时，先看日志区分是获取工具定义、执行搜索还是模型请求失败。
 服务的使用条件见 [官方工具说明](https://platform.kimi.ai/docs/guide/use-official-tools)。
 如果暂时无法联网，可以继续用上面的离线演示学习流程。
+
+也可选择 DeepSeek 或 OpenAI，仅需对应的 API Key：DeepSeek 的 `web_search` function
+调用官方 Search API；OpenAI 直接使用 Responses 的原生 `web_search`。无需额外配置 Serper。
+详见下文的供应商配置和[统一配置说明](../../docs/provider-compatibility.md#搜索示例)。
 
 ### 怎样检查答案
 
@@ -72,7 +76,10 @@
 | `MOONSHOT_API_KEY` | Moonshot AI API 密钥 | 必填 |
 | `KIMI_API_KEY` | 旧版 API 密钥变量名（向后兼容） | 可选 |
 | `KIMI_BASE_URL` | API 基础 URL | `https://api.moonshot.cn/v1` |
-| `DEFAULT_MODEL` | 默认模型 | `kimi-k3` |
+| `DEEPSEEK_API_KEY` / `OPENAI_API_KEY` | 选用对应供应商时的密钥 | 按供应商选择一组 |
+| `DEEPSEEK_BASE_URL` / `OPENAI_BASE_URL` | 对应供应商 API 地址 | `https://api.deepseek.com` / `https://api.openai.com/v1` |
+| `LLM_PROVIDER` | 默认供应商（可用 `--provider` 覆盖） | `kimi` |
+| `LLM_MODEL` | 覆盖所选供应商模型（也可用 `--model`） | Kimi: `kimi-k3`；DeepSeek: `deepseek-flash`；OpenAI: `gpt-4o` |
 | `MAX_SEARCH_ITERATIONS` | 最大搜索迭代次数（Config 中设置） | 5 |
 | `SEARCH_TIMEOUT` | 单次请求超时（秒），同时作用于 Formula 工具调用与 chat completion | 180 |
 | `temperature` | 控制生成内容的创造性 | 0.6 |
@@ -131,6 +138,26 @@ MOONSHOT_API_KEY=your-api-key-here
 
 **注意**: 为了向后兼容，系统也支持使用 `KIMI_API_KEY` 环境变量。
 
+如果使用 DeepSeek 或 OpenAI，只需配置所选供应商的 Key：
+
+```bash
+export DEEPSEEK_API_KEY='your-deepseek-key'
+python main.py --provider deepseek '搜索 Python 官方文档，解释 asyncio.TaskGroup'
+
+export OPENAI_API_KEY='your-openai-key'
+python main.py --provider openai '搜索 Python 官方文档，解释 asyncio.TaskGroup'
+```
+
+也可以使用 `--api-key` 和 `--base-url`。DeepSeek 接受 `https://api.deepseek.com`
+和 `https://api.deepseek.com/v1`，使用相同密钥调用官方 `/v1/tools/search`，支持默认的
+Flash 模型；不是给 Flash 添加会被忽略的 Responses 内置工具。
+参见 [DeepSeek Search API](https://api-docs.deepseek.com/guides/search/)。
+
+OpenAI 的模型和自定义代理需支持 Responses 原生搜索。程序强制至少一次搜索，保留
+`web_search_call` 回执，并将来源引用展示为 Markdown 链接。`--max-steps` 限制服务端
+工具调用次数；轨迹在响应返回后展示。
+参见 [OpenAI web search](https://developers.openai.com/api/docs/guides/tools-web-search)。
+
 **通用兜底（OpenRouter）**: 若未设置 `MOONSHOT_API_KEY`/`KIMI_API_KEY` 但设置了 `OPENROUTER_API_KEY`，请求会自动改走 OpenRouter。请求的模型 id 会被映射为 OpenRouter 等价 id（默认的 `kimi-k3` 会变成 `moonshotai/kimi-k2.6`）；仅当**未指定模型**时才使用 `OPENROUTER_MODEL`（默认 `openai/gpt-5.6-luna`）。
 
 **重要限制**：Kimi 内置的 `web_search` 工具是 Moonshot 专有能力，在 OpenRouter 上不可用——因此兜底模式下模型仅凭自身知识作答，**没有实时联网搜索**。如需真正的联网搜索，请使用 Moonshot 主 key。
@@ -146,11 +173,11 @@ python main.py --help
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
 | `query` | 要提问的问题（位置参数）；省略则进入交互模式 | 无 |
-| `--provider` | 搜索后端：`kimi`（调用内置 `web_search`，需 API Key）/ `offline-demo`（离线示例轨迹） | `kimi` |
-| `--model` | 模型名称 | `kimi-k3` |
-| `--max-steps` | 最大 ReAct 迭代次数 | `5` |
-| `--base-url` | API 基础 URL | `https://api.moonshot.cn/v1` |
-| `--api-key` | Kimi API Key（默认读环境变量） | 环境变量 |
+| `--provider` | `kimi` / `deepseek` / `openai`（官方搜索）/ `offline-demo`（离线示例轨迹） | `LLM_PROVIDER`，未设置时为 `kimi` |
+| `--model` | 模型名称 | 供应商默认值或 `LLM_MODEL` 等模型配置 |
+| `--max-steps` | 最大 ReAct 迭代次数；OpenAI 为服务端工具调用上限 | `5` |
+| `--base-url` | API 基础 URL | 所选供应商的配置 |
+| `--api-key` | 所选供应商 API Key（默认读对应环境变量） | 环境变量 |
 | `--output`, `-o` | 将问题、ReAct 轨迹与答案保存为 JSON | 无 |
 | `--quiet` | 不实时打印 ReAct 轨迹 | 打印 |
 
@@ -349,7 +376,7 @@ official `moonshot/web-search:latest` Formula to:
 
 It demonstrates the “Model as Agent” idea and the ReAct loop (think → act → observe).
 
-### Exact Formula route
+### Exact Formula route (Kimi)
 
 Kimi K3's current official hosted-search route is not the legacy
 `builtin_function` passthrough. Every independent question performs this exact
@@ -436,6 +463,29 @@ exposed through OpenRouter, so fallback mode answers from model knowledge
 without live Formula search. It is useful for interface diagnostics only and
 cannot satisfy Experiment 1-2 acceptance.
 
+**DeepSeek / OpenAI official search**: select a provider and configure only its
+own key. No Serper key is needed:
+
+```bash
+export DEEPSEEK_API_KEY='your-deepseek-key'
+python main.py --provider deepseek 'Search the Python documentation for asyncio.TaskGroup'
+
+export OPENAI_API_KEY='your-openai-key'
+python main.py --provider openai 'Search the Python documentation for asyncio.TaskGroup'
+```
+
+DeepSeek's client-side `web_search` function calls its official
+`POST /v1/tools/search`, using the same key and the configured base URL (with or
+without `/v1`). This works with the default Flash model; it does not rely on
+Flash supporting the Responses built-in search tool.
+See [DeepSeek Search / Fetch](https://api-docs.deepseek.com/guides/search/).
+
+OpenAI uses the Responses API's native `web_search` with required tool use and
+clickable Markdown citations. The model and endpoint must support Responses
+hosted search. Here, `--max-steps` limits server-side tool calls; the returned
+search trace is displayed after the response completes.
+See [OpenAI web search](https://developers.openai.com/api/docs/guides/tools-web-search).
+
 #### 3. Run the Agent
 
 `main.py` provides a full CLI (Chinese help). List all flags:
@@ -447,11 +497,11 @@ python main.py --help
 | Flag | Description | Default |
 |------|-------------|---------|
 | `query` | Question (positional); omit for interactive mode | none |
-| `--provider` | Backend: `kimi` (Moonshot Formula `web_search`, needs API key) / `offline-demo` (offline sample trace) | `kimi` |
-| `--model` | Model name | `kimi-k3` |
-| `--max-steps` | Max ReAct iterations | `5` |
-| `--base-url` | API base URL | `https://api.moonshot.cn/v1` |
-| `--api-key` | Kimi API key (else from env) | env |
+| `--provider` | `kimi` / `deepseek` / `openai` (official search) / `offline-demo` (sample trace) | `LLM_PROVIDER`, else `kimi` |
+| `--model` | Model name | Provider default or model environment override |
+| `--max-steps` | Max ReAct iterations; OpenAI: max server-side tool calls | `5` |
+| `--base-url` | API base URL | Selected provider configuration |
+| `--api-key` | Selected provider's API key (else from its env variable) | env |
 | `--output`, `-o` | Save question, ReAct trace, and answer as JSON | none |
 | `--quiet` | Do not stream ReAct trace live | stream on |
 
