@@ -1,11 +1,13 @@
 # 深入理解 AI Agent：设计原理与工程实践
 
-[![PDF](https://img.shields.io/badge/PDF-%E4%B8%8B%E8%BD%BD-success.svg)](#-电子书) [![在线阅读](https://img.shields.io/badge/🌐_在线阅读-bojieli.github.io-success?style=flat-square)](https://bojieli.github.io/ai-agent-book/astro/) [![Stars](https://img.shields.io/github/stars/bojieli/ai-agent-book?style=social)](https://github.com/bojieli/ai-agent-book) [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE) [![Languages](https://img.shields.io/badge/翻译-15%20种%20语言-informational.svg)](#-电子书)
+> 本仓库在线阅读：**[阅读器](https://weeweetan.github.io/ai-agent-book/astro/)** · [文档与配套实验](https://weeweetan.github.io/ai-agent-book/)。推送到 `main` 后自动更新。
+
+[![PDF](https://img.shields.io/badge/PDF-%E4%B8%8B%E8%BD%BD-success.svg)](#-电子书) [![在线阅读](https://img.shields.io/badge/🌐_在线阅读-weeweetan.github.io-success?style=flat-square)](https://weeweetan.github.io/ai-agent-book/astro/) [![Stars](https://img.shields.io/github/stars/bojieli/ai-agent-book?style=social)](https://github.com/bojieli/ai-agent-book) [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE) [![Languages](https://img.shields.io/badge/翻译-15%20种%20语言-informational.svg)](#-电子书)
 [![Trending GitHub Project of the Day](https://img.shields.io/badge/GitHub%20Trending-Project%20of%20the%20Day-orange?logo=github)](https://github.com/trending)
 
 **中文** ← 当前 · [English](docs/en/README.md) · [Español](docs/es/README.md) · [Bahasa Indonesia](docs/id/README.md) · [العربية](docs/ar/README.md) · [繁體中文（台灣）](docs/zh-TW/README.md) · [Русский](docs/ru/README.md) · [Tiếng Việt](docs/vi/README.md) · [தமிழ்](docs/ta/README.md) · [日本語](docs/ja/README.md) · [Türkçe](docs/tr/README.md) · [한국어](docs/ko/README.md) · [Magyar](docs/hu/README.md) · [עברית](README.he.md) · [Português (Brasil)](README.ptbr.md)
 
-> 📥 **[下载 PDF / EPUB](#-电子书)**（推荐）— 推荐使用 PDF / EPUB 离线阅读，排版最佳；也可[在线阅读](https://bojieli.github.io/ai-agent-book/astro/)（支持多语言切换、章节折叠、高亮与笔记，每次推送自动更新）。
+> 📥 **[下载 PDF / EPUB](#-电子书)**（推荐）— 推荐使用 PDF / EPUB 离线阅读，排版最佳；也可[在线阅读](https://weeweetan.github.io/ai-agent-book/astro/)（支持多语言切换、章节折叠、高亮与笔记，每次推送自动更新）。
 
 **Agent = LLM + 上下文 + 工具**——本书围绕这个核心公式，用 10 章把 AI Agent 从原理讲到工程实战。全书正文、配图、**109 个配套实验**全部开源，欢迎亲手把实验跑一遍。
 
@@ -39,7 +41,7 @@
 > - **希伯来语（עברית）**（社区翻译，by [@itzikwo](https://github.com/itzikwo)）：[PDF](https://github.com/bojieli/ai-agent-book/releases/download/latest/AI-Agents-in-Depth-he.pdf) · [EPUB](https://github.com/bojieli/ai-agent-book/releases/download/latest/AI-Agents-in-Depth-he.epub)
 > - **葡萄牙语（巴西）**（社区翻译，by [@leofn](https://github.com/leofn)，配图翻译 by [@LibnaRaffaely](https://github.com/LibnaRaffaely)）：[PDF](https://github.com/bojieli/ai-agent-book/releases/download/latest/AI-Agents-in-Depth-ptbr.pdf) · [EPUB](https://github.com/bojieli/ai-agent-book/releases/download/latest/AI-Agents-in-Depth-ptbr.epub)
 >
-> 🌐 也可[在线阅读](https://bojieli.github.io/ai-agent-book/astro/) — 支持多语言切换、章节折叠、高亮与笔记、配套实验直达，每次 main 分支推送后自动重新构建。
+> 🌐 也可[在线阅读](https://weeweetan.github.io/ai-agent-book/astro/) — 支持多语言切换、章节折叠、高亮与笔记、配套实验直达，每次 main 分支推送后自动重新构建。
 
 中文正文源码位于 [`book/`](book/)；英文/西班牙语/印度尼西亚语/阿拉伯语/繁體中文（台灣）/俄语/泰米尔/越南语/日语/土耳其语/韩语/匈牙利语/希伯来语/葡萄牙语（巴西）版本为社区贡献（可能滞后于中文原版），分别位于 [`book-en/`](book-en/)、[`book-es/`](book-es/)、[`book-id/`](book-id/)、[`book-ar/`](book-ar/)、[`book-zhtw/`](book-zhtw/)、[`book-ru/`](book-ru/)、[`book-ta/`](book-ta/)、[`book-vi/`](book-vi/)、[`book-ja/`](book-ja/)、[`book-tr/`](book-tr/)、[`book-ko/`](book-ko/)、[`book-hu/`](book-hu/)、[`book-he/`](book-he/)、[`book-ptbr/`](book-ptbr/)。
 
@@ -133,7 +135,7 @@ uv run python chapter1/context/main.py
 ## ❓ 常见问题
 
 **Q：有 PDF / EPUB 吗？需要自己编译吗？**
-不需要。[电子书](#-电子书)一节列出了 15 种语言的 PDF / EPUB 下载链接，始终指向 main 分支的最新构建；也可以[在线阅读](https://bojieli.github.io/ai-agent-book/)。只有想修改书稿并重新排版时才需要自行编译。
+不需要。[电子书](#-电子书)一节列出了 15 种语言的 PDF / EPUB 下载链接，始终指向 main 分支的最新构建；也可以[在线阅读](https://weeweetan.github.io/ai-agent-book/)。只有想修改书稿并重新排版时才需要自行编译。
 
 **Q：阅读本书需要哪些前置知识？**
 引言的“前置知识”一节有完整说明：能读懂并修改中等复杂度的 Python 代码；用过 ChatGPT、Claude 等 LLM 产品；熟悉至少一款 AI 辅助编程工具（Claude Code、Codex、Cursor 等）；了解命令行、Git、JSON、REST API 等软件工程常识。除第八章后训练外，全书对数学和机器学习的要求很低。
@@ -145,7 +147,7 @@ uv run python chapter1/context/main.py
 不需要。本书的配套代码全部由 coding agent 根据书稿生成，作者也不会逐行阅读。关键是把架构、核心组件和设计原则想清楚，然后让 AI 去写代码、跑测试、修 bug，人负责最初的设计和最终的验收。
 
 **Q：思考题有参考答案吗？**
-有：[`book/reference-answers.md`](book/reference-answers.md)（[在线版](https://bojieli.github.io/ai-agent-book/book/reference-answers/)）。它们只是参考，不是标准答案，欢迎在 Discussions 里讨论你的不同看法。
+有：[`book/reference-answers.md`](book/reference-answers.md)（[在线版](https://weeweetan.github.io/ai-agent-book/book/reference-answers/)）。它们只是参考，不是标准答案，欢迎在 Discussions 里讨论你的不同看法。
 
 **Q：读完之后有什么可以落地的实践项目？**
 推荐从头做一个像 Claude Code、Codex 那样的 coding agent：第 1–5 章足以做出一个可用的 coding agent；第 7、9 章帮它建立评估集并从失败案例中持续改进；第 8 章介入模型本身；第 6、10 章为它增加语音、Computer Use 等交互方式和多 Agent 协作。评测、观测、可靠性这些工程环节，可以从第 7 章的评估实验入手：先为自己的 agent 建一个十几条任务的小评估集，再围绕失败用例做改进。

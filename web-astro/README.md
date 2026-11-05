@@ -16,6 +16,24 @@ English starts at `/ai-agent-book/astro/en/`; the other editions use their own
 locale homepages. Existing MkDocs URLs and companion experiment pages remain available.
 Relevant pull requests run the builds and checks without deploying.
 
+### Publish a fork on GitHub Pages
+
+1. In the fork's **Settings → Pages**, select **GitHub Actions** as the source.
+2. In **Settings → Secrets and variables → Actions → Variables**, set the repository
+   variable `PUBLISH_PAGES` to `true`.
+3. Run the `deploy-pages` workflow manually, or push to `main`.
+
+The workflow reads the Pages URL and base path, builds MkDocs at the site root,
+and publishes the Astro reader under `astro/`. For this fork, the reader is at
+[weeweetan.github.io/ai-agent-book/astro/](https://weeweetan.github.io/ai-agent-book/astro/).
+Source and companion-code links use the fork; PDF downloads use the upstream's
+published release. The author and translation credits remain in the book.
+
+For local deployment builds, `ASTRO_SITE` sets the origin, `ASTRO_BASE` sets the
+reader path, `MKDOCS_SITE_URL` sets the companion site's URL, and
+`MKDOCS_REPO_URL` / `MKDOCS_REPO_NAME` select the source repository.
+Without overrides, local builds continue to use the upstream URLs.
+
 Astro uses `/` locally. To reproduce the GitHub Pages build:
 
 ```sh

@@ -3,7 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import Header from '../components/Header.astro';
 import Icon from '../components/Icon.astro';
 import Highlights from '../components/Highlights.astro';
-import { getBook, repo } from '../lib/book';
+import { getBook, repo, upstreamRepo } from '../lib/book';
 import { translator, editions, type Locale } from '../lib/i18n';
 import type { MarkdownInstance } from 'astro';
 interface Props {
@@ -76,7 +76,7 @@ const outline = getHeadings().filter(
           {t('Companion experiments')}
           <Icon name="external" size={14} /></a
         ><a
-          href={`${repo}/releases/download/latest/AI-Agents-in-Depth-${edition.pdf}.pdf`}
+          href={`${upstreamRepo}/releases/download/latest/AI-Agents-in-Depth-${edition.pdf}.pdf`}
           ><Icon name="download" size={17} /> {t('Download the book')}</a
         >
       </div>

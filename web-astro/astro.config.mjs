@@ -15,7 +15,7 @@ import { bookMarkdown, bookFootnotes } from './src/lib/book-markdown.mjs';
 const base = process.env.ASTRO_BASE ?? '/';
 
 export default defineConfig({
-  site: 'https://bojieli.github.io',
+  site: process.env.ASTRO_SITE ?? 'https://bojieli.github.io',
   base,
   output: 'static',
   trailingSlash: 'always',

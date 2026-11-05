@@ -27,7 +27,12 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
     env:
+      MKDOCS_REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+      MKDOCS_REPO_NAME: ${{ github.repository }}
       # Silence the MkDocs 2.0 banner. We pin to mkdocs-material 9.x in
       # requirements-docs.txt, so the upcoming breaking change doesn't
       # affect us until we explicitly upgrade. The variable name is read
@@ -37,6 +42,10 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      - name: Configure Pages
+        id: pages
+        if: github.event_name != 'pull_request' && (github.repository == 'bojieli/ai-agent-book' || vars.PUBLISH_PAGES == 'true')
+        uses: actions/configure-pages@v5
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
@@ -49,7 +58,11 @@ jobs:
       - name: Assemble docs
         run: bash scripts/build_site.sh
       - name: Build site
-        run: mkdocs build -d site
+        env:
+          MKDOCS_SITE_URL: ${{ steps.pages.outputs.base_url || format('https://{0}.github.io/{1}', github.repository_owner, github.event.repository.name) }}
+        run: |
+          mkdocs build -d site
+          printf 'User-agent: *\nAllow: /\n\nSitemap: %s/sitemap.xml\n' "${MKDOCS_SITE_URL%/}" > site/robots.txt
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
@@ -67,7 +80,9 @@ jobs:
       - name: Build Astro for GitHub Pages
         working-directory: web-astro
         env:
-          ASTRO_BASE: /${{ github.event.repository.name }}/astro/
+          ASTRO_SITE: ${{ steps.pages.outputs.origin || format('https://{0}.github.io', github.repository_owner) }}
+          ASTRO_BASE: ${{ steps.pages.outcome == 'success' && format('{0}/astro/', steps.pages.outputs.base_path) || format('/{0}/astro/', github.event.repository.name) }}
+          MKDOCS_SITE_URL: ${{ steps.pages.outputs.base_url || format('https://{0}.github.io/{1}', github.repository_owner, github.event.repository.name) }}
         run: |
           npm run build
           npm run check:deployment
@@ -80,8 +95,8 @@ jobs:
           path: site
 
   deploy:
-    # Publishing is owned by the canonical repository; forks still verify builds.
-    if: github.repository == 'bojieli/ai-agent-book' && github.event_name != 'pull_request'
+    # Fork owners can opt in after enabling Pages with GitHub Actions as its source.
+    if: github.event_name != 'pull_request' && (github.repository == 'bojieli/ai-agent-book' || vars.PUBLISH_PAGES == 'true')
     needs: build
     permissions:
       pages: write

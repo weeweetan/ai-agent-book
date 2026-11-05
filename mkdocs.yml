@@ -1,8 +1,8 @@
 site_name: AI Agents in Depth
 site_description: AI Agents in Depth — Design Principles and Engineering Practice. An open-source book covering AI Agents from theory to production, with 10 chapters and 94 companion experiments.
-site_url: https://bojieli.github.io/ai-agent-book
-repo_url: https://github.com/bojieli/ai-agent-book
-repo_name: bojieli/ai-agent-book
+site_url: !ENV [MKDOCS_SITE_URL, 'https://bojieli.github.io/ai-agent-book']
+repo_url: !ENV [MKDOCS_REPO_URL, 'https://github.com/bojieli/ai-agent-book']
+repo_name: !ENV [MKDOCS_REPO_NAME, 'bojieli/ai-agent-book']
 edit_uri: edit/main
 
 # The actual docs are assembled into `_web/` by `scripts/build_site.sh`

@@ -10,8 +10,11 @@ const chapterSources = import.meta.glob<string>(
   },
 );
 
-export const repo = 'https://github.com/bojieli/ai-agent-book';
-export const originalSite = 'https://bojieli.github.io/ai-agent-book';
+export const upstreamRepo = 'https://github.com/bojieli/ai-agent-book';
+export const repo = process.env.MKDOCS_REPO_URL ?? upstreamRepo;
+export const originalSite = (
+  process.env.MKDOCS_SITE_URL ?? 'https://bojieli.github.io/ai-agent-book'
+).replace(/\/$/, '');
 const descriptions = [
   'The model, the context, the tools—and the loop that brings them together.',
   'Build the working context that makes an agent effective.',

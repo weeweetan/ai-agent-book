@@ -3,7 +3,9 @@ import { figurePaths, sourceFigureLabels } from './figure-paths.mjs';
 import { sourceEdition } from './edition-source.mjs';
 import { withBase } from './site-path.mjs';
 import { readFileSync } from 'node:fs';
-const originalSite = 'https://bojieli.github.io/ai-agent-book';
+const originalSite = (
+  process.env.MKDOCS_SITE_URL ?? 'https://bojieli.github.io/ai-agent-book'
+).replace(/\/$/, '');
 
 // Adapt the web view only. The tracked book remains the shared PDF/website source.
 export function bookMarkdown({ base = '/' } = {}) {
