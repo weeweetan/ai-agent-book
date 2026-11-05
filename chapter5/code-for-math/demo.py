@@ -12,6 +12,12 @@
 更多用法见  python demo.py --help
 """
 
+# Locate the shared package when this example is run from a source checkout.
+import sys as _sys
+from pathlib import Path as _CheckoutPath
+
+_sys.path.insert(0, str(_CheckoutPath(__file__).resolve().parents[2]))
+
 from agentbook.providers import chat_completion, chat_request
 
 import os

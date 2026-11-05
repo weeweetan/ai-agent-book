@@ -5,21 +5,29 @@
 行动，观察搜索结果后继续思考，直到综合出最终答案。运行时会逐步打印 ReAct 轨迹。
 """
 
-from agentbook.providers import example_provider
+from __future__ import annotations
 
-import os
+# Locate the shared package when this example is run from a source checkout.
+import sys as _sys
+from pathlib import Path as _CheckoutPath
+
+_sys.path.insert(0, str(_CheckoutPath(__file__).resolve().parents[2]))
+
 import sys
 import json
 import argparse
 import logging
-from typing import Optional
-from agent import WebSearchAgent, run_offline_demo
-from config import Config
+from typing import TYPE_CHECKING, Optional
+from defaults import LOG_FORMAT, LOG_LEVEL, MAX_SEARCH_ITERATIONS
+from react_trace import run_offline_demo
+
+if TYPE_CHECKING:
+    from agent import WebSearchAgent
 
 # 设置日志
 logging.basicConfig(
-    level=getattr(logging, Config.LOG_LEVEL),
-    format=Config.LOG_FORMAT
+    level=getattr(logging, LOG_LEVEL),
+    format=LOG_FORMAT
 )
 logger = logging.getLogger(__name__)
 
@@ -31,7 +39,8 @@ def _save_output(path: str, payload: dict):
     print(f"\n💾 结果已保存到: {path}")
 
 
-def run_interactive_mode(agent: WebSearchAgent, output: Optional[str] = None):
+def run_interactive_mode(agent: WebSearchAgent, output: Optional[str] = None,
+                         max_iterations: int = MAX_SEARCH_ITERATIONS):
     """
     交互式模式 - 每次提问独立（search_and_answer 会重置对话历史，无跨问题上下文）
 
@@ -71,7 +80,7 @@ def run_interactive_mode(agent: WebSearchAgent, output: Optional[str] = None):
             print("\n🔍 Agent 正在搜索和思考（ReAct 轨迹如下）...\n")
 
             # 获取答案（verbose=True 时轨迹已在 agent 内实时打印）
-            answer = agent.search_and_answer(user_input, max_iterations=Config.MAX_SEARCH_ITERATIONS)
+            answer = agent.search_and_answer(user_input, max_iterations=max_iterations)
 
             # 显示答案
             print("\n" + "="*60)
@@ -150,13 +159,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("query", nargs="*",
                         help="要提问的问题；省略则进入交互模式")
-    parser.add_argument("--provider", choices=["kimi", "deepseek", "openai", "offline-demo"], default=example_provider(),
+    parser.add_argument("--provider", choices=["kimi", "deepseek", "openai", "offline-demo"], default=None,
                         help="搜索后端：kimi=调用 Kimi Formula web_search（需 API Key）；"
                              "deepseek/openai=模型 + Serper 搜索；offline-demo=离线回放")
     parser.add_argument("--model", default=None,
                         help="模型覆盖（默认由供应商和 LLM_MODEL 决定）")
-    parser.add_argument("--max-steps", type=int, default=Config.MAX_SEARCH_ITERATIONS,
-                        help=f"最大 ReAct 迭代次数（默认 {Config.MAX_SEARCH_ITERATIONS}）")
+    parser.add_argument("--max-steps", type=int, default=MAX_SEARCH_ITERATIONS,
+                        help=f"最大 ReAct 迭代次数（默认 {MAX_SEARCH_ITERATIONS}）")
     parser.add_argument("--base-url", default=None,
                         help="API 基础 URL 覆盖（默认读取供应商对应配置）")
     parser.add_argument("--api-key", default=None,
@@ -192,13 +201,27 @@ def main(argv: Optional[list] = None):
             _save_output(args.output, result)
         return
 
+    # Offline replay and --help work before any SDK or .env dependency loads.
+    try:
+        from agent import WebSearchAgent
+        from agentbook.providers import example_provider
+    except ModuleNotFoundError as exc:
+        if exc.name not in {"openai", "dotenv", "requests"}:
+            raise
+        requirements = _CheckoutPath(__file__).with_name("requirements.txt")
+        parser.exit(
+            2,
+            f'联网模式缺少依赖 {exc.name}。请用当前 Python 安装本示例依赖：\n'
+            f'  "{sys.executable}" -m pip install -r "{requirements}"\n',
+        )
+
     api_key = args.api_key
 
     # 创建 Agent
     try:
         agent = WebSearchAgent(
             api_key=api_key,
-            provider=args.provider,
+            provider=args.provider or example_provider(),
             base_url=args.base_url,
             model=args.model,
             verbose=not args.quiet,
@@ -212,7 +235,7 @@ def main(argv: Optional[list] = None):
     if question:
         run_single_question(agent, question, args.max_steps, args.output)
     else:
-        run_interactive_mode(agent, args.output)
+        run_interactive_mode(agent, args.output, args.max_steps)
 
 
 if __name__ == "__main__":

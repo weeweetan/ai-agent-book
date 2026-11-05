@@ -4,6 +4,12 @@ This agent uses RAG-indexed conversation memories to answer questions
 about user interactions, following the ReAct pattern.
 """
 
+# Locate the shared package when this example is run from a source checkout.
+import sys as _sys
+from pathlib import Path as _CheckoutPath
+
+_sys.path.insert(0, str(_CheckoutPath(__file__).resolve().parents[2]))
+
 from agentbook.providers import chat_completion
 
 import json

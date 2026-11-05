@@ -30,6 +30,12 @@ HTML 表单**（含级联显示逻辑），让用户"一次提交"补全所有�
   MODEL            （可选，默认 gpt-5.6-luna）
 """
 
+# Locate the shared package when this example is run from a source checkout.
+import sys as _sys
+from pathlib import Path as _CheckoutPath
+
+_sys.path.insert(0, str(_CheckoutPath(__file__).resolve().parents[2]))
+
 from agentbook.providers import chat_completion
 
 from agentbook.providers import PROVIDERS, example_provider

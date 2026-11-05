@@ -16,6 +16,13 @@
      python demo.py --dry-run   # 离线走通提议者-审核者循环（真实渲染 + 脚本化改稿）
 依赖：Node/Slidev（渲染）、OPENAI_API_KEY（gpt-5.6-luna 视觉 + 文本；未配置时可用 OPENROUTER_API_KEY 兜底）。
 """
+
+# Locate the shared package when this example is run from a source checkout.
+import sys as _sys
+from pathlib import Path as _CheckoutPath
+
+_sys.path.insert(0, str(_CheckoutPath(__file__).resolve().parents[2]))
+
 import argparse
 import hashlib
 import json

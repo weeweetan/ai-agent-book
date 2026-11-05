@@ -6,11 +6,11 @@ import main as cli
 from config import Config
 
 
-def test_parser_defaults_to_interactive_kimi_mode():
+def test_parser_defers_online_provider_until_environment_is_loaded():
     args = cli.build_parser().parse_args([])
 
     assert args.query == []
-    assert args.provider == "kimi"
+    assert args.provider is None
     # Defaults are resolved after --provider; never pass a Kimi model/URL to
     # a reader who selected OpenAI or DeepSeek.
     assert args.model is None

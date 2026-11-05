@@ -2,13 +2,16 @@
 配置文件 - Kimi API 配置
 """
 
+# Locate the shared package when this example is run from a source checkout.
+import sys as _sys
+from pathlib import Path as _CheckoutPath
+
+_sys.path.insert(0, str(_CheckoutPath(__file__).resolve().parents[2]))
+
 import os
 from typing import Optional
 from dotenv import load_dotenv
-
-load_dotenv()
-
-from dotenv import load_dotenv
+import defaults
 
 # Read the nearest .env, searching upward from the working directory, so a
 # single file at the repository root serves every chapter.
@@ -16,7 +19,7 @@ load_dotenv()
 
 
 # Provider resolution lives in the shared agentbook package so every chapter
-# stays consistent; see agentbook/providers.py. The fallback keeps this
+# stays consistent; see agentbook/providers/. The fallback keeps this
 # experiment runnable from a checkout where agentbook is not installed.
 try:
     from agentbook.providers import (
@@ -58,7 +61,7 @@ class Config:
     DEFAULT_MODEL: str = "kimi-k3"  # 使用最新的 Kimi K3 模型
 
     # 搜索配置
-    MAX_SEARCH_ITERATIONS: int = 5  # 最大搜索迭代次数（与 agent 默认值保持一致）
+    MAX_SEARCH_ITERATIONS: int = defaults.MAX_SEARCH_ITERATIONS
     # 这个超时同时作用于 Formula 工具调用和 chat completion。kimi-k3 以
     # reasoning_effort=max 运行，单次 completion 常需 1-3 分钟（validation/
     # 目录里保留的真实运行记录中有 161 秒、121 秒的调用），30 秒会让交互模式
@@ -67,8 +70,8 @@ class Config:
     SEARCH_TIMEOUT: float = float(os.getenv("SEARCH_TIMEOUT", "180"))
     
     # 日志配置
-    LOG_LEVEL: str = "INFO"
-    LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    LOG_LEVEL: str = defaults.LOG_LEVEL
+    LOG_FORMAT: str = defaults.LOG_FORMAT
     
     @classmethod
     def validate(cls) -> bool:

@@ -3,6 +3,12 @@ Main script to demonstrate KV cache importance
 Runs the ReAct agent with different implementations and compares performance
 """
 
+# Locate the shared package when this example is run from a source checkout.
+import sys as _sys
+from pathlib import Path as _CheckoutPath
+
+_sys.path.insert(0, str(_CheckoutPath(__file__).resolve().parents[2]))
+
 from agentbook.providers import example_provider, example_model, PROVIDERS
 
 import os

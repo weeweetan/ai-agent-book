@@ -5,6 +5,12 @@ Default model is Kimi K3 (matching 实验 7-2 in the book); override via the
 `model` argument or the MOONSHOT_MODEL environment variable.
 """
 
+# Locate the shared package when this example is run from a source checkout.
+import sys as _sys
+from pathlib import Path as _CheckoutPath
+
+_sys.path.insert(0, str(_CheckoutPath(__file__).resolve().parents[2]))
+
 from agentbook.providers import chat_completion
 
 import os
@@ -95,7 +101,11 @@ class LLMAgent:
         self.base_url = backend.base_url
         self.model = backend.model
         self.using_openrouter = backend.using_openrouter
-        self.provider = "openrouter" if backend.using_openrouter else backend.provider
+        # Saved learning evidence has always named the Kimi backend "moonshot".
+        self.provider = (
+            "openrouter" if backend.using_openrouter
+            else {"kimi": "moonshot"}.get(backend.provider, backend.provider)
+        )
         self.client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url)
         self.temperature = temperature
         

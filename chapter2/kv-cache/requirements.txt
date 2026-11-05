@@ -6,7 +6,7 @@
 -e ../..
 
 # OpenAI client for Kimi API compatibility
-openai>=1.35.0
+openai>=1.68.0
 
 # Utilities
 python-dotenv>=1.0.0  # For environment variable management

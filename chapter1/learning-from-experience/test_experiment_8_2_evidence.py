@@ -1,5 +1,6 @@
 import json
 from types import SimpleNamespace
+import pytest
 
 from experiment import ExperimentRunner
 from game_environment import TreasureHuntGame
@@ -63,9 +64,19 @@ def test_api_failure_is_retained_and_cannot_look_like_model_behavior(monkeypatch
     assert agent.api_records[0]["error"]["type"] == "RuntimeError"
 
 
-def test_saved_evidence_excludes_credentials(monkeypatch, tmp_path):
-    monkeypatch.setenv("MOONSHOT_API_KEY", "secret-that-must-not-be-written")
-    agent = LLMAgent(model="kimi-k3")
+@pytest.mark.parametrize(
+    "provider,key_name,saved_provider",
+    [
+        ("kimi", "MOONSHOT_API_KEY", "moonshot"),
+        ("deepseek", "DEEPSEEK_API_KEY", "deepseek"),
+        ("openai", "OPENAI_API_KEY", "openai"),
+    ],
+)
+def test_saved_evidence_excludes_credentials(
+    monkeypatch, tmp_path, provider, key_name, saved_provider
+):
+    monkeypatch.setenv(key_name, "secret-that-must-not-be-written")
+    agent = LLMAgent(provider=provider)
     agent.client = SimpleNamespace(
         chat=SimpleNamespace(
             completions=SimpleNamespace(create=lambda **_: _response())
@@ -77,7 +88,7 @@ def test_saved_evidence_excludes_credentials(monkeypatch, tmp_path):
     payload = output.read_text(encoding="utf-8")
 
     assert "secret-that-must-not-be-written" not in payload
-    assert json.loads(payload)["backend"]["provider"] == "moonshot"
+    assert json.loads(payload)["backend"]["provider"] == saved_provider
 
 
 def test_nested_validation_output_is_created(tmp_path):

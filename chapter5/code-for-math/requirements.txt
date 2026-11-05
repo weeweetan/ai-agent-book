@@ -1,4 +1,4 @@
-openai>=1.30.0
+openai>=1.68.0
 sympy>=1.12
 numpy>=1.26
 scipy>=1.11

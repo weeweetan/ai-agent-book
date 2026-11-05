@@ -1,6 +1,6 @@
 # Core dependencies
 mem0ai[nlp]>=2.0,<3
-openai>=1.54.0
+openai>=1.68.0
 python-dotenv>=1.0.0
 
 # Kimi K3 model integration

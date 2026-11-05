@@ -85,7 +85,7 @@
 
 ### 先做一个小规模观察
 
-以下命令从本实验目录执行。先完成前面的环境准备，再观察这条路径的输入和输出。
+以下命令从本实验目录执行，只使用 Python 标准库，无需安装 `openai`、`requests` 或 `python-dotenv`。观察这条路径的输入和输出后，再按“快速开始”安装联网模式的依赖。
 
 ```bash
 python main.py --provider offline-demo --output demo.json
@@ -111,7 +111,7 @@ source .venv/bin/activate
 # 进入本实验目录，后续命令都在这里运行
 cd chapter1/web-search-agent
 
-# 迁移期间仍支持单项目兼容路径：
+# 也可只安装当前实验的依赖（必须使用运行 main.py 的同一个 Python）：
 # python -m pip install -r requirements.txt
 ```
 

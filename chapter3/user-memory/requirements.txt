@@ -1,7 +1,7 @@
 # User Memory System Requirements
 
 # Core dependencies
-openai>=1.35.0
+openai>=1.68.0
 python-dotenv>=1.0.0
 
 # Logging and utilities

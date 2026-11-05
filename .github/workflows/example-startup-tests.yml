@@ -1,0 +1,54 @@
+name: checkout-startup tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "agentbook/**"
+      - "chapter*/**/*.py"
+      - "chapter*/**/requirements*.txt"
+      - "tests/test_example_startup.py"
+      - ".github/workflows/example-startup-tests.yml"
+  pull_request:
+    paths:
+      - "agentbook/**"
+      - "chapter*/**/*.py"
+      - "chapter*/**/requirements*.txt"
+      - "tests/test_example_startup.py"
+      - ".github/workflows/example-startup-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  startup:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk: ["openai==1.68.0", "openai>=1.68.0"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      # Do not install agentbook: doing so would hide checkout import failures.
+      # These are the dependencies declared by the selected example modules.
+      - name: Install example startup dependencies
+        run: >-
+          python -m pip install "${{ matrix.sdk }}" "python-dotenv>=1.0"
+          "requests>=2.31" "pytest>=8.3" "python-pptx>=0.6.23"
+          "Pillow>=10.2" "beautifulsoup4>=4.12" "python-constraint>=1.4.0" "mcp>=1.0"
+      - name: Check all 31 examples without an installed shared package
+        env:
+          PYTHON_DOTENV_DISABLED: "1"
+          EXPECT_UNINSTALLED_AGENTBOOK: "1"
+        run: python -m pytest -q tests/test_example_startup.py
+      - name: Verify request and provider compatibility
+        env:
+          PYTHON_DOTENV_DISABLED: "1"
+        run: python -m pytest -q tests/test_providers.py tests/test_example_providers.py
+      - name: Check the dependency-free offline search demo
+        working-directory: chapter1/web-search-agent
+        run: python -E -S main.py --provider offline-demo --output /tmp/offline-demo.json

@@ -6,7 +6,17 @@
 python -m pip install -e '.[ch1]'
 ```
 
-如果只安装了某个实验的 `requirements.txt`，还需要在根目录执行 `python -m pip install -e .`。共享配置和请求适配器位于 `agentbook/providers/`。
+共享配置和请求适配器位于 `agentbook/providers/`。源码中的示例会按脚本位置定位仓库根目录，也支持进入实验目录后用同一个 Python 安装并运行：
+
+```bash
+cd chapter1/web-search-agent
+python -m pip install -r requirements.txt
+python main.py --provider openai '搜索 Python 官方文档'
+```
+
+依赖必须安装到运行脚本的 Python 环境中；遇到 `No module named 'dotenv'` 时，对应的发行包是 `python-dotenv`，已在各联网示例的依赖文件中声明。使用 `python -m pip` 可以确保安装器与当前解释器一致。
+
+单项目依赖中的 OpenAI SDK 最低版本与根目录保持一致，均为 `openai>=1.68.0`。CI 同时检查最低版本和当前版本，避免旧 SDK 已满足旧依赖约束，却无法接受共享适配器生成的参数。
 
 ## 选择供应商
 
@@ -65,7 +75,13 @@ python chapter1/web-search-agent/main.py '搜索 Python 官方文档，解释 as
 python chapter1/web-search-agent/main.py --provider openai '搜索 Python 官方文档'
 ```
 
-没有 `SERPER_API_KEY` 时，DeepSeek/OpenAI 搜索入口会明确报错，不会把模型记忆当成搜索结果。离线轨迹仍可用 `--provider offline-demo` 查看。
+没有 `SERPER_API_KEY` 时，DeepSeek/OpenAI 搜索入口会明确报错，不会把模型记忆当成搜索结果。离线轨迹只使用 Python 标准库，可以先运行，再决定是否安装联网依赖：
+
+```bash
+python chapter1/web-search-agent/main.py --provider offline-demo --output demo.json
+```
+
+`--help` 同样不加载模型 SDK 或 `.env` 依赖。联网入口缺少依赖时，会给出使用当前 Python 安装 `requirements.txt` 的命令。
 
 ## 参数及能力边界
 
@@ -79,6 +95,8 @@ python chapter1/web-search-agent/main.py --provider openai '搜索 Python 官方
 
 固定模型的论文复现实验、历史验证产物、训练脚本、第三方内置项目保留原来的配置和结果。换模型会影响实验指标，新结果需要重新运行，不能沿用已有报告。
 
+手机注册示例的历史验收记录还绑定 `source_sha256`：`decision.py`、`orchestration.py` 等源码修改后，用当前源码验证旧记录会因哈希不匹配而失败。这是记录来源的完整性检查，不应通过改写历史哈希来消除。要复核旧记录，请向 `validate_acceptance.py --source-root` 提供与记录哈希一致的原源码；要证明新版通过真实服务验收，则需要重新运行实验并保留新的回执。
+
 ## 离线验证
 
 ```bash
@@ -89,3 +107,5 @@ python -m pytest -q
 ```
 
 测试使用假密钥和模拟 HTTP 传输，检查端点、认证头、模型选择、工具往返及同步/异步流式协议，不调用付费 API。真实账户的模型权限和网络连通性需要使用自己的密钥另行验证。
+
+`checkout-startup tests` 工作流单独安装示例入口所需的轻量依赖，刻意不安装 `agentbook`，在 31 个实验目录分别启动配置模块并检查 Kimi、DeepSeek、OpenAI 三组配置。搜索示例还通过 `python -E -S main.py --provider offline-demo` 验证没有第三方包时的离线路径。这些启动检查不替代依赖外部数据库、媒体服务或真实模型的完整实验验收。

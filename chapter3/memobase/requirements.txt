@@ -4,7 +4,7 @@
 # MemoryStore agent (agent.py/main.py) does NOT need this package.
 memobase>=0.0.27
 
-openai>=1.45.0
+openai>=1.68.0
 python-dotenv>=1.0.0
 numpy>=1.24.0
 pandas>=2.0.0

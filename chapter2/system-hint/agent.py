@@ -4,6 +4,12 @@ An agent that demonstrates advanced trajectory management with system hints,
 including timestamps, tool call tracking, TODO lists, and detailed error messages.
 """
 
+# Locate the shared package when this example is run from a source checkout.
+import sys as _sys
+from pathlib import Path as _CheckoutPath
+
+_sys.path.insert(0, str(_CheckoutPath(__file__).resolve().parents[2]))
+
 from agentbook.providers import chat_completion
 
 import codecs

@@ -19,6 +19,12 @@ python-pptx 生成真实的 .pptx，并读回校验页数与每页标题。
     python demo.py
 """
 
+# Locate the shared package when this example is run from a source checkout.
+import sys as _sys
+from pathlib import Path as _CheckoutPath
+
+_sys.path.insert(0, str(_CheckoutPath(__file__).resolve().parents[2]))
+
 from agentbook.providers import chat_completion
 
 from agentbook.providers import example_model, example_provider, PROVIDERS, resolve_example_backend

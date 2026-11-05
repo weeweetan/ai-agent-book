@@ -1,5 +1,11 @@
 """Configuration module for Mem0 agent with Kimi K3 integration."""
 
+# Locate the shared package when this example is run from a source checkout.
+import sys as _sys
+from pathlib import Path as _CheckoutPath
+
+_sys.path.insert(0, str(_CheckoutPath(__file__).resolve().parents[2]))
+
 from agentbook.providers import PROVIDERS, example_model, example_provider, resolve_example_backend
 
 import os

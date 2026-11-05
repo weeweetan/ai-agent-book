@@ -2,6 +2,12 @@
 Configuration for Memobase Agent with Kimi K3 Model
 """
 
+# Locate the shared package when this example is run from a source checkout.
+import sys as _sys
+from pathlib import Path as _CheckoutPath
+
+_sys.path.insert(0, str(_CheckoutPath(__file__).resolve().parents[2]))
+
 import os
 from pathlib import Path
 from dotenv import load_dotenv

@@ -2,5 +2,5 @@
 # from the experiment directory, as shown in the README.
 -e ../..
 
-openai>=1.13.3
+openai>=1.68.0
 python-dotenv>=1.0.0

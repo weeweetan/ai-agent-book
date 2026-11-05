@@ -20,6 +20,12 @@
 提示：想在无 API / 无网络时验证整条 ffmpeg 合成流水线，用 `python demo.py --offline`。
 """
 
+# Locate the shared package when this example is run from a source checkout.
+import sys as _sys
+from pathlib import Path as _CheckoutPath
+
+_sys.path.insert(0, str(_CheckoutPath(__file__).resolve().parents[2]))
+
 from agentbook.providers import chat_completion
 
 from agentbook.providers import example_model, example_provider, PROVIDERS, resolve_example_backend

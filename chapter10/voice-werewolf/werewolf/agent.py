@@ -14,6 +14,12 @@ Agent 用一套**规则驱动**的决策代替 LLM。关键在于：离线策略
 依然可被审计校验。
 """
 
+# Locate the shared package when this example is run from a source checkout.
+import sys as _sys
+from pathlib import Path as _CheckoutPath
+
+_sys.path.insert(0, str(_CheckoutPath(__file__).resolve().parents[3]))
+
 from agentbook.providers import chat_completion, chat_request
 
 import json

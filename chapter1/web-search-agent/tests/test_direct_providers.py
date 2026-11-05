@@ -65,7 +65,7 @@ def test_no_search_key_fails_before_constructing_client(monkeypatch):
 
 def test_cli_passes_provider_without_injecting_kimi_defaults(monkeypatch):
     constructor = Mock()
-    monkeypatch.setattr(main, "WebSearchAgent", constructor)
+    monkeypatch.setattr("agent.WebSearchAgent", constructor)
     monkeypatch.setattr(main, "run_single_question", Mock())
     main.main(["query", "--provider", "openai"])
     assert constructor.call_args.kwargs["provider"] == "openai"

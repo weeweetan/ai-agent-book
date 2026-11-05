@@ -18,6 +18,12 @@
   OPENROUTER_API_KEY（可选，无直连 key 时自动改走 OpenRouter 兜底）
 """
 
+# Locate the shared package when this example is run from a source checkout.
+import sys as _sys
+from pathlib import Path as _CheckoutPath
+
+_sys.path.insert(0, str(_CheckoutPath(__file__).resolve().parents[2]))
+
 from agentbook.providers import chat_completion
 
 import os
